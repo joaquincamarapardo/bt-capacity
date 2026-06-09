@@ -125,6 +125,17 @@ async function loadData() {
 function processWorkbook(wb) {
   const YEAR = 2026;
 
+  // Leer personas con Flex Work de la pestaña Flexible Working
+  const flexPeople = new Set();
+  const wfSheet = wb.Sheets['⏰ Flexible Working'];
+  if(wfSheet) {
+    const wfRaw = XLSX.utils.sheet_to_json(wfSheet, { header: 1, defval: null });
+    for(let i = 7; i < wfRaw.length; i++) {
+      const name = wfRaw[i][2];
+      if(name && typeof name === 'string') flexPeople.add(name.trim());
+    }
+  }
+
   // Leer Roster
   const wsRoster = wb.Sheets['👤 Team Roster'];
   if(!wsRoster) throw new Error('No se encontró la pestaña Team Roster.');
@@ -199,10 +210,19 @@ function processWorkbook(wb) {
         const wd = (fwMon + d - 1) % 7;
         if(wd >= 5) continue; // fin de semana
         const v = row[col];
+
+        // Detectar propd via nota/comentario en la celda
+        const colLetter = XLSX.utils.encode_col(col);
+        const cellAddr  = `${colLetter}${r + 1}`;
+        const wsCell    = ws[cellAddr];
+        const hasPropdNote = wsCell && wsCell.c &&
+          wsCell.c.some(comment => comment.t && comment.t.toLowerCase().includes('propd'));
+
         if(typeof v === 'string' && ABSENCE_CODES.has(v)) {
           absCodes[v] = (absCodes[v]||0) + 1;
         } else if(typeof v === 'number' && v > 0) {
           avail += v;
+          if(hasPropdNote) absCodes['propd'] = (absCodes['propd']||0) + 1;
         }
       }
 
