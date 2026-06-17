@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BT Capacity — Gestión de equipo</title>
 <style>
@@ -162,6 +165,19 @@ tr:hover td{background:#F9FAFB}
 
   <!-- ROSTER -->
   <div id="tab-roster" class="panel">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1rem;align-items:center">
+      <button class="btn-primary" onclick="downloadExcel()">⬇️ Descargar Excel</button>
+      <div style="display:flex;gap:8px;align-items:center;background:#fff;padding:8px 12px;border-radius:8px;border:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--muted);font-weight:500">Copiar emails:</span>
+        <select id="email-mode" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+          <option value="all">Todos activos</option>
+          <option value="Onsite">Solo Onsite activos</option>
+          <option value="Offshore">Solo Offshore activos</option>
+        </select>
+        <button class="btn-primary" style="padding:6px 14px;font-size:12px" onclick="copyEmails()">📋 Copiar emails</button>
+        <span id="email-copied" style="font-size:11px;color:#166534;display:none">✓ Copiado</span>
+      </div>
+    </div>
     <div class="tw">
       <table>
         <thead><tr>
