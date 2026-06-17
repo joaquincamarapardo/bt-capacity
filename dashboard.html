@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280;--pale:#E8F0FB}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray);min-height:100vh}
+.topbar{background:var(--navy);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.back-btn{color:#90CAF9;text-decoration:none;font-size:13px}
+.topbar-title{font-size:15px;font-weight:500;color:#fff}
+.topbar-sub{font-size:11px;color:#90CAF9;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn-refresh{background:var(--orange);color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer}
+.last-update{font-size:11px;color:#90CAF9}
+
+.nav{display:flex;background:#fff;border-bottom:1px solid var(--border);padding:0 1.5rem;overflow-x:auto}
+.nav-tab{padding:11px 16px;font-size:13px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.nav-tab.a{color:var(--navy);border-bottom-color:var(--navy);font-weight:500}
+
+#loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-size:13px;color:var(--muted)}
+
+.content{padding:1.25rem 1.5rem;max-width:1400px;margin:0 auto;display:none}
+.panel{display:none}.panel.a{display:block}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:1.25rem}
+.card{background:#fff;border-radius:10px;padding:.875rem 1rem;border:1px solid var(--border)}
+.card-acc{border-left:4px solid var(--navy)}
+.card-l{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.card-v{font-size:22px;font-weight:600;color:var(--text)}
+.card-s{font-size:11px;color:var(--muted);margin-top:2px}
+
+.sec{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:1.25rem 0 .625rem;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.chart-card{background:#fff;border-radius:10px;padding:1.125rem;border:1px solid var(--border);margin-bottom:1rem}
+.chart-card h3{font-size:13px;font-weight:500;color:var(--text);margin-bottom:.75rem}
+.cw{position:relative}
+.leg{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.leg span{display:flex;align-items:center;gap:4px}
+.leg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+
+.filt{display:flex;gap:8px;margin-bottom:.875rem;flex-wrap:wrap;align-items:center}
+.filt label{font-size:12px;color:var(--muted);font-weight:500}
+.filt select,.filt input{font-size:12px;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:#fff;color:var(--text)}
+
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:1rem}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--navy);color:#fff;padding:7px 9px;text-align:right;font-weight:500;white-space:nowrap}
+th.l{text-align:left}
+td{padding:5px 9px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;color:var(--text)}
+td.l{text-align:left}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#F9FAFB}
+tfoot td{background:var(--navy)!important;color:#fff;font-weight:600;border-bottom:none!important}
+.bon{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:500;background:#DBEAFE;color:#1E40AF}
+.bof{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:500;background:#FEF3C7;color:#92400E}
+.pill{display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;margin:1px;font-weight:500}
+.z{color:#D1D5DB}
+.dp{color:#166534;font-weight:500}.dn{color:#991B1B;font-weight:500}.dz{color:#9CA3AF}
+
+.team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:1rem}
+.team-card{background:#fff;border-radius:10px;border:1px solid var(--border);overflow:hidden}
+.team-hdr{padding:.625rem 1rem;font-size:13px;font-weight:500;color:#fff}
+.team-body{padding:.75rem 1rem}
+.team-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:0.5px solid var(--border)}
+.team-row:last-child{border-bottom:none}
+.team-row-l{color:var(--muted)}
+.team-row-v{font-weight:500}
+
+.psel select{width:100%;font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text);margin-bottom:1rem}
+.pcard{background:#fff;border-radius:10px;border:1px solid var(--border);padding:1rem;margin-bottom:1rem}
+
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="back-btn">← Inicio</a>
+    <div>
+      <div class="topbar-title">Dashboard de Capacidad 2026</div>
+      <div class="topbar-sub">BT Team · DXC Technology</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="last-update" id="last-update"></span>
+    <button class="btn-refresh" onclick="loadData()">↻ Actualizar</button>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="nav-tab a" onclick="T('overview',this)">Resumen anual</button>
+  <button class="nav-tab" onclick="T('bymode',this)">Onsite vs Offshore</button>
+  <button class="nav-tab" onclick="T('byteam',this)">Por equipo</button>
+  <button class="nav-tab" onclick="T('monthly',this)">Por mes</button>
+  <button class="nav-tab" onclick="T('person',this)">Por persona</button>
+  <button class="nav-tab" onclick="T('charts',this)">Gráficos</button>
+</div>
+
+<div id="loading"><div class="spinner"></div><div class="loading-txt" id="loading-txt">Conectando con Firebase...</div></div>
+
+<div class="content" id="content">
+  <div id="p-overview" class="panel a"></div>
+  <div id="p-bymode"   class="panel"></div>
+  <div id="p-byteam"  class="panel"></div>
+  <div id="p-monthly" class="panel"></div>
+  <div id="p-person"  class="panel"></div>
+  <div id="p-charts"  class="panel"></div>
+</div>
+
+<script type="module">
+import { auth, db, onAuthStateChanged, collection, getDocs }
+  from './firebase-config.js';
+
+// ── CONSTANTES ─────────────────────────────────────────────────────────────
+const MN   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MNL  = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const YEAR = 2026;
+const CODES  = ['H','L','S','T','M','propd','LD','HPY'];
+const CNAMES = {H:'Festivos',L:'Vacaciones',S:'Baja',T:'Formación',M:'Maternidad',propd:'Flex',LD:'Libre disp.',HPY:'Vac.ant.'};
+const CCOLS  = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',propd:'#FFF9C4',LD:'#E8F5E9',HPY:'#B3E5FC'};
+const TCOLORS = ['#0D1B4B','#F26522','#1D9E75','#D85A30','#7F77DD','#BA7517','#D4537E','#378ADD','#639922','#888780'];
+
+const CHS = {};
+let STATE = { roster: [], people: [], annual: [], teamData: {}, teams: [] };
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+onAuthStateChanged(auth, user => {
+  if(!user) { window.location = 'index.html'; return; }
+  loadData();
+});
+
+// ── CARGA DE DATOS ─────────────────────────────────────────────────────────
+window.loadData = async () => {
+  showLoading('Cargando roster...');
+  try {
+    // Roster
+    const rosterSnap = await getDocs(collection(db, 'roster'));
+    const roster = [];
+    rosterSnap.forEach(d => roster.push({ id: d.id, ...d.data() }));
+
+    setLoadingTxt('Cargando calendarios...');
+    // Calendar
+    const calSnap = await getDocs(collection(db, 'calendar'));
+    const calMap  = {};
+    calSnap.forEach(d => { calMap[d.id] = d.data(); });
+
+    setLoadingTxt('Calculando métricas...');
+    STATE = processData(roster, calMap);
+    hideLoading();
+
+    document.getElementById('last-update').textContent =
+      '↻ ' + new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+
+    renderAll();
+  } catch(e) {
+    hideLoading();
+    alert('Error al cargar datos: ' + e.message);
+  }
+};
+
+// ── PROCESADO ──────────────────────────────────────────────────────────────
+function processData(roster, calMap) {
+  const people  = {};
+  const annual  = [];
+  const teamData= {};
+
+  for(let mi = 0; mi < 12; mi++) {
+    const mk    = MN[mi];
+    const nDays = DAYS[mi];
+    const fw    = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
+    let totAvail=0,totAbs=0,onAvail=0,offAvail=0,onAbs=0,offAbs=0,onHC=0,offHC=0;
+    const absType = {};
+
+    // Filtrar entradas de este mes
+    const monthEntries = Object.entries(calMap).filter(([k]) => k.startsWith(mk+'-'));
+
+    monthEntries.forEach(([key, data]) => {
+      const name  = data.name;
+      const team  = data.team || 'BT';
+      const rp    = roster.find(r => r.name === name);
+      const mode  = rp ? rp.mode : '?';
+      const hd    = rp ? (rp.hrs?.[mi] || 8) : 8;
+
+      if(!people[name]) people[name] = { mode, team, hrs: rp?.hrs||[], months:{}, codes:{} };
+
+      let avail=0, absHrs=0;
+      const dayCodes = {};
+
+      for(let d = 1; d <= nDays; d++) {
+        const wd = (fw + d - 1) % 7;
+        if(wd >= 5) continue;
+        const v = data.days?.[String(d)];
+        if(typeof v === 'string' && CODES.includes(v)) {
+          dayCodes[v] = (dayCodes[v]||0) + 1;
+          absHrs += hd;
+          absType[v] = (absType[v]||0) + hd;
+        } else if(typeof v === 'number' && v > 0) {
+          avail += v;
+        } else if(v === undefined) {
+          // día activo sin dato → usar horas por defecto
+          const pStart = rp ? new Date(rp.start) : new Date(2026,0,1);
+          const pEnd   = rp?.end ? new Date(rp.end) : null;
+          const dd     = new Date(YEAR, mi, d);
+          if(dd >= pStart && (!pEnd || dd <= pEnd)) avail += hd;
+        }
+      }
+
+      people[name].months[mk] = { avail, abs: absHrs, codes: dayCodes };
+      Object.entries(dayCodes).forEach(([c,n]) => {
+        people[name].codes[c] = (people[name].codes[c]||0) + n;
+      });
+
+      totAvail += avail; totAbs += absHrs;
+      if(mode==='Onsite') { onAvail+=avail; onAbs+=absHrs; onHC++; }
+      else if(mode==='Offshore') { offAvail+=avail; offAbs+=absHrs; offHC++; }
+
+      // Por equipo
+      if(!teamData[team]) teamData[team] = {};
+      if(!teamData[team][mk]) teamData[team][mk] = { avail:0, abs:0, count:0, people:[] };
+      teamData[team][mk].avail += avail;
+      teamData[team][mk].abs   += absHrs;
+      teamData[team][mk].count++;
+      teamData[team][mk].people.push({ name, mode, avail, abs: absHrs, codes: dayCodes });
+    });
+
+    annual.push({ month:mk, total_hrs:totAvail, abs_hrs:totAbs,
+      on_avail:onAvail, off_avail:offAvail, on_abs:onAbs, off_abs:offAbs,
+      on_hc:onHC, off_hc:offHC, abs_by_type:absType });
+  }
+
+  const peopleList = Object.entries(people).map(([name, p]) => ({
+    name, mode:p.mode, team:p.team,
+    avail: Object.values(p.months).reduce((s,m)=>s+(m.avail||0),0),
+    abs:   Object.values(p.months).reduce((s,m)=>s+(m.abs||0),0),
+    codes: p.codes, months: p.months
+  })).sort((a,b)=>a.name.localeCompare(b.name));
+
+  const teams = Object.keys(teamData).sort();
+  const tColors = {};
+  teams.forEach((t,i) => tColors[t] = TCOLORS[i % TCOLORS.length]);
+
+  return { roster, people: peopleList, annual, teamData, teams, tColors };
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function pct(a,b){ return b>0?Math.round(a/b*100):0; }
+function fmt(n){ return n>=1000?(n/1000).toFixed(1)+'k':String(Math.round(n||0)); }
+function delt(v){ return v>0?`<span class="dp">▲${fmt(v)}</span>`:v<0?`<span class="dn">▼${fmt(Math.abs(v))}</span>`:`<span class="dz">—</span>`; }
+function pill(codes,c){ const n=codes[c]||0; return n?`<td><span class="pill" style="background:${CCOLS[c]}">${n}</span></td>`:`<td class="z">—</td>`; }
+function bdg(m){ return m==='Onsite'?`<span class="bon">Onsite</span>`:`<span class="bof">Offshore</span>`; }
+function card(l,v,s,acc){ return `<div class="card${acc?' card-acc':''}"><div class="card-l">${l}</div><div class="card-v">${v}</div><div class="card-s">${s}</div></div>`; }
+function mkC(id,type,data,opts){
+  const ctx=document.getElementById(id); if(!ctx) return;
+  if(CHS[id]) CHS[id].destroy();
+  CHS[id]=new Chart(ctx,{type,data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},...opts}});
+}
+
+function renderAll(){ renderOverview(); renderByMode(); renderByTeam(); renderMonthly(); renderPerson(); renderCharts(); }
+
+// ── OVERVIEW ───────────────────────────────────────────────────────────────
+function renderOverview(){
+  const d=STATE; if(!d.annual.length) return;
+  const totA=d.annual.reduce((s,a)=>s+a.total_hrs,0);
+  const totB=d.annual.reduce((s,a)=>s+a.abs_hrs,0);
+  const maxM=d.annual.reduce((a,b)=>a.total_hrs>b.total_hrs?a:b);
+  const maxAM=d.annual.reduce((a,b)=>a.abs_hrs>b.abs_hrs?a:b);
+  const nOn=d.people.filter(p=>p.mode==='Onsite').length;
+  const nOff=d.people.filter(p=>p.mode==='Offshore').length;
+
+  let html=`<div class="cards">
+    ${card('Total horas 2026',fmt(totA)+'h',`${totA.toLocaleString()} h disponibles`,true)}
+    ${card('Total ausencias',fmt(totB)+'h',`${pct(totB,totA+totB)}% sobre capacidad bruta`)}
+    ${card('Personas activas',d.people.length,`${nOn} Onsite · ${nOff} Offshore`)}
+    ${card('Mes más productivo',maxM.month,`${maxM.total_hrs.toLocaleString()} h`)}
+    ${card('Mes más ausencias',maxAM.month,`${maxAM.abs_hrs.toLocaleString()} h ausencia`)}
+  </div>
+  <div class="grid2">
+    <div class="chart-card"><h3>Horas disponibles vs ausencias por mes</h3>
+      <div class="leg"><span><i style="background:#0D1B4B"></i>Disponibles</span><span><i style="background:#F26522"></i>Ausencia</span></div>
+      <div class="cw" style="height:200px"><canvas id="ch-ov1"></canvas></div>
+    </div>
+    <div class="chart-card"><h3>Headcount por mes</h3>
+      <div class="leg"><span><i style="background:#0D1B4B"></i>Onsite</span><span><i style="background:#F26522"></i>Offshore</span></div>
+      <div class="cw" style="height:200px"><canvas id="ch-ov2"></canvas></div>
+    </div>
+  </div>
+  <div class="sec">Tabla por persona</div>
+  <div class="filt">
+    <label>Modo:</label><select id="fov-mode" onchange="filterOvTable()"><option value="">Todos</option><option>Onsite</option><option>Offshore</option></select>
+    <label>Buscar:</label><input id="fov-name" placeholder="Nombre..." oninput="filterOvTable()" style="width:160px">
+  </div>`;
+  html+=`<div class="tw"><table><thead><tr>
+    <th class="l" style="min-width:150px">Persona</th><th class="l">Modo</th><th class="l">Equipo</th>
+    <th>H disp.</th><th>H aus.</th><th>% disp.</th>
+    ${CODES.map(c=>`<th>${c}</th>`).join('')}
+  </tr></thead><tbody id="tbody-ov"></tbody></table></div>`;
+
+  document.getElementById('p-overview').innerHTML=html;
+  setTimeout(()=>{
+    mkC('ch-ov1','bar',{labels:MNL,datasets:[
+      {label:'Disp.',data:d.annual.map(a=>a.total_hrs),backgroundColor:'#0D1B4B'},
+      {label:'Aus.',data:d.annual.map(a=>a.abs_hrs),backgroundColor:'#F26522'}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
+    mkC('ch-ov2','line',{labels:MNL,datasets:[
+      {label:'On',data:d.annual.map(a=>a.on_hc),borderColor:'#0D1B4B',backgroundColor:'#0D1B4B',tension:.3,pointRadius:4},
+      {label:'Off',data:d.annual.map(a=>a.off_hc),borderColor:'#F26522',backgroundColor:'#F26522',tension:.3,pointRadius:4,borderDash:[4,2]}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{min:0}}});
+    filterOvTable();
+  },50);
+}
+
+window.filterOvTable=()=>{
+  const mode=document.getElementById('fov-mode')?.value||'';
+  const name=(document.getElementById('fov-name')?.value||'').toLowerCase();
+  const f=STATE.people.filter(p=>(!mode||p.mode===mode)&&(!name||p.name.toLowerCase().includes(name))).sort((a,b)=>b.avail-a.avail);
+  const el=document.getElementById('tbody-ov'); if(!el) return;
+  el.innerHTML=f.map(p=>{
+    const t=p.avail+p.abs||1;
+    return `<tr><td class="l">${p.name}</td><td class="l">${bdg(p.mode)}</td><td class="l">${p.team}</td>
+      <td>${p.avail.toLocaleString()}</td><td>${p.abs.toLocaleString()}</td><td>${pct(p.avail,t)}%</td>
+      ${CODES.map(c=>pill(p.codes,c)).join('')}</tr>`;
+  }).join('');
+};
+
+// ── BY MODE ────────────────────────────────────────────────────────────────
+function renderByMode(){
+  const d=STATE; if(!d.annual.length) return;
+  const onA=d.annual.map(a=>a.on_avail), offA=d.annual.map(a=>a.off_avail);
+  const onAb=d.annual.map(a=>a.on_abs), offAb=d.annual.map(a=>a.off_abs);
+  const totOn=onA.reduce((s,v)=>s+v,0), totOff=offA.reduce((s,v)=>s+v,0);
+  const totOnB=onAb.reduce((s,v)=>s+v,0), totOffB=offAb.reduce((s,v)=>s+v,0);
+
+  let html=`<div class="cards">
+    ${card('Horas Onsite',fmt(totOn)+'h',`${pct(totOn,totOn+totOnB)}% disponibilidad`,true)}
+    ${card('Horas Offshore',fmt(totOff)+'h',`${pct(totOff,totOff+totOffB)}% disponibilidad`)}
+    ${card('Tasa aus. Onsite',pct(totOnB,totOn+totOnB)+'%',`${totOnB.toLocaleString()} h ausencia`)}
+    ${card('Tasa aus. Offshore',pct(totOffB,totOff+totOffB)+'%',`${totOffB.toLocaleString()} h ausencia`)}
+  </div>
+  <div class="grid2">
+    <div class="chart-card"><h3>Horas disponibles — Onsite vs Offshore</h3>
+      <div class="leg"><span><i style="background:#0D1B4B"></i>Onsite</span><span><i style="background:#F26522"></i>Offshore</span></div>
+      <div class="cw" style="height:200px"><canvas id="ch-bm1"></canvas></div>
+    </div>
+    <div class="chart-card"><h3>Tasa de ausencias %</h3>
+      <div class="leg"><span><i style="background:#0D1B4B"></i>% Onsite</span><span><i style="background:#F26522"></i>% Offshore</span></div>
+      <div class="cw" style="height:200px"><canvas id="ch-bm2"></canvas></div>
+    </div>
+  </div>
+  <div class="sec">Tabla mensual Onsite vs Offshore</div>`;
+
+  let rows='',soa=0,sob=0,sfa=0,sfb=0;
+  MN.forEach((mk,i)=>{
+    const oa=onA[i],ob=onAb[i],fa=offA[i],fb=offAb[i];
+    soa+=oa;sob+=ob;sfa+=fa;sfb+=fb;
+    rows+=`<tr><td class="l">${MNL[i]}</td>
+      <td>${oa.toLocaleString()}</td><td>${ob.toLocaleString()}</td><td>${pct(oa,oa+ob)}%</td>
+      <td>${fa.toLocaleString()}</td><td>${fb.toLocaleString()}</td><td>${pct(fa,fa+fb)}%</td>
+      <td>${(oa+fa).toLocaleString()}</td></tr>`;
+  });
+  html+=`<div class="tw"><table><thead><tr>
+    <th class="l">Mes</th><th>On disp.</th><th>On aus.</th><th>% On</th>
+    <th>Off disp.</th><th>Off aus.</th><th>% Off</th><th>Total</th>
+  </tr></thead><tbody>${rows}</tbody>
+  <tfoot><tr><td class="l">TOTAL AÑO</td>
+    <td>${soa.toLocaleString()}</td><td>${sob.toLocaleString()}</td><td>${pct(soa,soa+sob)}%</td>
+    <td>${sfa.toLocaleString()}</td><td>${sfb.toLocaleString()}</td><td>${pct(sfa,sfa+sfb)}%</td>
+    <td>${(soa+sfa).toLocaleString()}</td>
+  </tr></tfoot></table></div>`;
+
+  document.getElementById('p-bymode').innerHTML=html;
+  setTimeout(()=>{
+    mkC('ch-bm1','bar',{labels:MNL,datasets:[
+      {label:'Onsite',data:onA,backgroundColor:'#0D1B4B'},
+      {label:'Offshore',data:offA,backgroundColor:'#F26522'}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
+    const rOn=onA.map((v,i)=>pct(onAb[i],v+onAb[i]));
+    const rOff=offA.map((v,i)=>pct(offAb[i],v+offAb[i]));
+    mkC('ch-bm2','line',{labels:MNL,datasets:[
+      {label:'%On',data:rOn,borderColor:'#0D1B4B',backgroundColor:'#0D1B4B',tension:.3,pointRadius:4},
+      {label:'%Off',data:rOff,borderColor:'#F26522',backgroundColor:'#F26522',tension:.3,pointRadius:4,borderDash:[4,2]}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{min:0,ticks:{callback:v=>v+'%'}}}});
+  },50);
+}
+
+// ── BY TEAM ────────────────────────────────────────────────────────────────
+function renderByTeam(){
+  const d=STATE;
+  const teamAvail=t=>MN.reduce((s,mk)=>s+(d.teamData[t]?.[mk]?.avail||0),0);
+  const teamAbs  =t=>MN.reduce((s,mk)=>s+(d.teamData[t]?.[mk]?.abs||0),0);
+  const teamPpl  =t=>Math.max(...MN.map(mk=>d.teamData[t]?.[mk]?.count||0));
+  const sorted=[...d.teams].sort((a,b)=>teamAvail(b)-teamAvail(a));
+
+  let html=`<div class="filt">
+    <label>Vista:</label>
+    <select id="fbt-view" onchange="renderByTeamView()"><option value="annual">Resumen anual</option><option value="month">Por mes</option></select>
+    <span id="fbt-mes-wrap" style="display:none">
+      <label>Mes:</label>
+      <select id="fbt-mes" onchange="renderByTeamView()">${MNL.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}</select>
+    </span>
+  </div><div id="byteam-content"></div>`;
+  document.getElementById('p-byteam').innerHTML=html;
+  renderByTeamView();
+}
+
+window.renderByTeamView=()=>{
+  const d=STATE;
+  const view=document.getElementById('fbt-view')?.value||'annual';
+  const mesWrap=document.getElementById('fbt-mes-wrap');
+  if(mesWrap) mesWrap.style.display=view==='month'?'':'none';
+  const teamAvail=t=>MN.reduce((s,mk)=>s+(d.teamData[t]?.[mk]?.avail||0),0);
+  const teamAbs  =t=>MN.reduce((s,mk)=>s+(d.teamData[t]?.[mk]?.abs||0),0);
+  const teamPpl  =t=>Math.max(...MN.map(mk=>d.teamData[t]?.[mk]?.count||0));
+  const sorted=[...d.teams].sort((a,b)=>teamAvail(b)-teamAvail(a));
+  const con=document.getElementById('byteam-content'); if(!con) return;
+
+  if(view==='annual'){
+    let rows='',sumA=0,sumB=0;
+    sorted.forEach(t=>{
+      const a=teamAvail(t),b=teamAbs(t),p=teamPpl(t); sumA+=a;sumB+=b;
+      rows+=`<tr><td class="l"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.tColors[t]};margin-right:6px;vertical-align:middle"></span>${t}</td>
+        <td>${a.toLocaleString()}</td><td>${b.toLocaleString()}</td><td>${pct(a,a+b)}%</td><td>${p}</td><td>${p?Math.round(a/p):0}</td></tr>`;
+    });
+    con.innerHTML=`<div class="chart-card"><h3>Horas disponibles por equipo — 2026</h3>
+      <div class="cw" style="height:220px"><canvas id="ch-bt1"></canvas></div></div>
+      <div class="tw"><table><thead><tr><th class="l">Equipo</th><th>H disponibles</th><th>H ausencia</th><th>% disp.</th><th>Personas</th><th>Media h/p</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td class="l">TOTAL</td><td>${sumA.toLocaleString()}</td><td>${sumB.toLocaleString()}</td><td>${pct(sumA,sumA+sumB)}%</td><td>—</td><td>—</td></tr></tfoot>
+      </table></div>`;
+    setTimeout(()=>mkC('ch-bt1','bar',{labels:sorted,datasets:[
+      {label:'Disp.',data:sorted.map(teamAvail),backgroundColor:sorted.map(t=>d.tColors[t])},
+      {label:'Aus.',data:sorted.map(teamAbs),backgroundColor:sorted.map(t=>d.tColors[t]+'88')}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:11}}},y:{ticks:{callback:v=>fmt(v)}}}}),50);
+  } else {
+    const mi=parseInt(document.getElementById('fbt-mes')?.value||0);
+    const mk=MN[mi];
+    const active=sorted.filter(t=>d.teamData[t]?.[mk]);
+    let rows='',totA=0,totB=0;
+    active.forEach(t=>{
+      const td=d.teamData[t][mk]; totA+=td.avail;totB+=td.abs;
+      rows+=`<tr><td class="l"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.tColors[t]};margin-right:6px;vertical-align:middle"></span>${t}</td>
+        <td>${td.avail.toLocaleString()}</td><td>${td.abs.toLocaleString()}</td><td>${pct(td.avail,td.avail+td.abs)}%</td><td>${td.count}</td><td>${td.count?Math.round(td.avail/td.count):0}</td></tr>`;
+    });
+    let pRows='';
+    active.forEach(t=>{
+      d.teamData[t][mk].people.sort((a,b)=>b.avail-a.avail).forEach(p=>{
+        pRows+=`<tr><td class="l"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.tColors[t]};margin-right:4px;vertical-align:middle"></span>${t}</td>
+          <td class="l">${p.name}</td><td class="l">${bdg(p.mode)}</td>
+          <td>${p.avail}</td><td>${p.abs}</td><td>${pct(p.avail,p.avail+p.abs||1)}%</td></tr>`;
+      });
+    });
+    con.innerHTML=`<div class="chart-card"><h3>Horas por equipo — ${MNL[mi]}</h3>
+      <div class="cw" style="height:200px"><canvas id="ch-bt2"></canvas></div></div>
+      <div class="tw"><table><thead><tr><th class="l">Equipo</th><th>H disponibles</th><th>H ausencia</th><th>% disp.</th><th>Personas</th><th>Media h/p</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td class="l">TOTAL</td><td>${totA.toLocaleString()}</td><td>${totB.toLocaleString()}</td><td>${pct(totA,totA+totB)}%</td><td>—</td><td>—</td></tr></tfoot>
+      </table></div>
+      <div class="sec">Personas por equipo — ${MNL[mi]}</div>
+      <div class="tw"><table><thead><tr><th class="l">Equipo</th><th class="l">Persona</th><th class="l">Modo</th><th>H disp.</th><th>H aus.</th><th>% disp.</th></tr></thead>
+      <tbody>${pRows}</tbody></table></div>`;
+    setTimeout(()=>mkC('ch-bt2','bar',{labels:active,datasets:[
+      {label:'Disp.',data:active.map(t=>d.teamData[t][mk].avail),backgroundColor:active.map(t=>d.tColors[t])},
+      {label:'Aus.',data:active.map(t=>d.teamData[t][mk].abs),backgroundColor:active.map(t=>d.tColors[t]+'88')}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:11}}},y:{ticks:{callback:v=>fmt(v)}}}}),50);
+  }
+};
+
+// ── MONTHLY ────────────────────────────────────────────────────────────────
+function renderMonthly(){
+  document.getElementById('p-monthly').innerHTML=`
+    <div class="filt">
+      <label>Mes:</label><select id="fm-mes" onchange="filterMonthly()">${MNL.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}</select>
+      <label>Modo:</label><select id="fm-mode" onchange="filterMonthly()"><option value="">Todos</option><option>Onsite</option><option>Offshore</option></select>
+      <label>Buscar:</label><input id="fm-name" placeholder="Nombre..." oninput="filterMonthly()" style="width:150px">
+    </div>
+    <div class="cards" id="c-monthly"></div>
+    <div class="tw"><table><thead><tr>
+      <th class="l" style="min-width:150px">Persona</th><th class="l">Modo</th><th class="l">Equipo</th>
+      <th>H disp.</th><th>H aus.</th><th>% disp.</th>
+      ${CODES.map(c=>`<th>${c}</th>`).join('')}
+    </tr></thead><tbody id="tbody-monthly"></tbody></table></div>`;
+  filterMonthly();
+}
+
+window.filterMonthly=()=>{
+  const mi=parseInt(document.getElementById('fm-mes')?.value||0);
+  const mk=MN[mi];
+  const mode=document.getElementById('fm-mode')?.value||'';
+  const name=(document.getElementById('fm-name')?.value||'').toLowerCase();
+  const f=STATE.people
+    .filter(p=>(!mode||p.mode===mode)&&(!name||p.name.toLowerCase().includes(name))&&p.months[mk])
+    .map(p=>({...p,m:p.months[mk]}))
+    .sort((a,b)=>(b.m.avail||0)-(a.m.avail||0));
+  const ta=f.reduce((s,p)=>s+(p.m.avail||0),0);
+  const tb=f.reduce((s,p)=>s+(p.m.abs||0),0);
+  const cm=document.getElementById('c-monthly');
+  if(cm) cm.innerHTML=
+    card('Personas activas',f.length,`${f.filter(p=>p.mode==='Onsite').length} on · ${f.filter(p=>p.mode==='Offshore').length} off`,true)+
+    card('H disponibles',ta.toLocaleString(),`en ${MNL[mi]}`)+
+    card('H ausencia',tb.toLocaleString(),`${pct(tb,ta+tb)}% del total`)+
+    card('Media h/persona',f.length?Math.round(ta/f.length):0,'h disponibles');
+  const tbody=document.getElementById('tbody-monthly');
+  if(tbody) tbody.innerHTML=f.map(p=>{
+    const t=(p.m.avail||0)+(p.m.abs||0)||1;
+    return `<tr><td class="l">${p.name}</td><td class="l">${bdg(p.mode)}</td><td class="l">${p.team}</td>
+      <td>${p.m.avail||0}</td><td>${p.m.abs||0}</td><td>${pct(p.m.avail||0,t)}%</td>
+      ${CODES.map(c=>pill(p.m.codes||{},c)).join('')}</tr>`;
+  }).join('');
+};
+
+// ── PERSON ─────────────────────────────────────────────────────────────────
+function renderPerson(){
+  const opts=STATE.people.map(p=>`<option value="${p.name}">${p.name} (${p.mode})</option>`).join('');
+  document.getElementById('p-person').innerHTML=`
+    <div class="psel"><select id="fp-sel" onchange="filterPerson()">${opts}</select></div>
+    <div id="person-content"></div>`;
+  filterPerson();
+}
+
+window.filterPerson=()=>{
+  const nm=document.getElementById('fp-sel')?.value;
+  const p=STATE.people.find(x=>x.name===nm); if(!p) return;
+  const t=p.avail+p.abs||1;
+  const cpills=Object.entries(p.codes).map(([c,n])=>
+    `<span class="pill" style="background:${CCOLS[c]||'#eee'};padding:3px 9px;font-size:12px">${CNAMES[c]||c}: ${n} días</span>`
+  ).join(' ');
+  const rows=MN.map((mk,i)=>{
+    const m=p.months[mk]||{};const a=m.avail||0,b=m.abs||0;
+    if(!a&&!b) return `<tr><td>${MNL[i]}</td><td colspan="${3+CODES.length}" class="z" style="text-align:center">— inactivo —</td></tr>`;
+    return `<tr><td>${MNL[i]}</td><td>${a}</td><td>${b}</td><td>${pct(a,a+b||1)}%</td>${CODES.map(c=>pill(m.codes||{},c)).join('')}</tr>`;
+  }).join('');
+  document.getElementById('person-content').innerHTML=`
+    <div class="pcard">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:.75rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:#E8F0FB;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#0C447C;flex-shrink:0">${p.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+        <div><div style="font-size:15px;font-weight:500">${p.name}</div>
+          <div style="margin-top:3px;display:flex;gap:6px;align-items:center">${bdg(p.mode)}<span style="font-size:11px;color:var(--muted)">${p.team}</span></div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:22px;font-weight:600">${p.avail.toLocaleString()} h</div>
+          <div style="font-size:11px;color:var(--muted)">${pct(p.avail,t)}% disponible · ${p.abs.toLocaleString()} h ausencia</div>
+        </div>
+      </div>
+      ${cpills?`<div style="display:flex;flex-wrap:wrap;gap:5px">${cpills}</div>`:''}
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th class="l">Mes</th><th>H disp.</th><th>H aus.</th><th>% disp.</th>${CODES.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td class="l">TOTAL AÑO</td><td>${p.avail.toLocaleString()}</td><td>${p.abs.toLocaleString()}</td><td>${pct(p.avail,t)}%</td>
+        ${CODES.map(c=>`<td>${p.codes[c]||'—'}</td>`).join('')}</tr></tfoot>
+    </table></div>`;
+};
+
+// ── CHARTS ─────────────────────────────────────────────────────────────────
+function renderCharts(){
+  const d=STATE; if(!d.annual.length) return;
+  const dOn =d.annual.map((a,i)=>i===0?0:a.on_avail-d.annual[i-1].on_avail);
+  const dOff=d.annual.map((a,i)=>i===0?0:a.off_avail-d.annual[i-1].off_avail);
+  const usedCodes=CODES.filter(c=>d.annual.some(a=>(a.abs_by_type?.[c]||0)>0));
+
+  let rows='';
+  MN.forEach((mk,i)=>{
+    const oa=d.annual[i].on_avail,fa=d.annual[i].off_avail;
+    const doa=i>0?oa-d.annual[i-1].on_avail:0,dfa=i>0?fa-d.annual[i-1].off_avail:0;
+    rows+=`<tr><td class="l">${MNL[i]}</td><td>${oa.toLocaleString()}</td><td>${delt(doa)}</td><td>${fa.toLocaleString()}</td><td>${delt(dfa)}</td><td>${(oa+fa).toLocaleString()}</td><td>${delt(doa+dfa)}</td></tr>`;
+  });
+
+  document.getElementById('p-charts').innerHTML=`
+    <div class="grid2">
+      <div class="chart-card"><h3>Horas totales disponibles por mes</h3>
+        <div class="cw" style="height:200px"><canvas id="ch-c1"></canvas></div></div>
+      <div class="chart-card"><h3>Ausencias por tipo acumuladas</h3>
+        <div class="cw" style="height:200px"><canvas id="ch-c2"></canvas></div>
+    </div></div>
+    <div class="chart-card"><h3>Variación mensual Δ vs mes anterior</h3>
+      <div class="leg"><span><i style="background:#0D1B4B"></i>Δ Onsite</span><span><i style="background:#F26522"></i>Δ Offshore</span></div>
+      <div class="cw" style="height:200px"><canvas id="ch-c3"></canvas></div>
+    </div>
+    <div class="sec">Tabla variaciones</div>
+    <div class="tw"><table><thead><tr>
+      <th class="l">Mes</th><th>On disp.</th><th>Δ On</th><th>Off disp.</th><th>Δ Off</th><th>Total</th><th>Δ Total</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  setTimeout(()=>{
+    mkC('ch-c1','bar',{labels:MNL,datasets:[{
+      label:'Total',data:d.annual.map(a=>a.total_hrs),
+      backgroundColor:d.annual.map((_,i)=>i===7?'#F26522':'#0D1B4B')
+    }]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
+    mkC('ch-c2','bar',{labels:MNL,datasets:usedCodes.map(c=>({
+      label:CNAMES[c],data:d.annual.map(a=>a.abs_by_type?.[c]||0),
+      backgroundColor:CCOLS[c],borderColor:'rgba(0,0,0,0.08)',borderWidth:1
+    }))},{scales:{x:{stacked:true,ticks:{autoSkip:false,font:{size:10}}},y:{stacked:true,ticks:{callback:v=>fmt(v)}}}});
+    mkC('ch-c3','bar',{labels:MNL,datasets:[
+      {label:'ΔOn',data:dOn,backgroundColor:dOn.map(v=>v>=0?'#0D1B4B':'#EF4444')},
+      {label:'ΔOff',data:dOff,backgroundColor:dOff.map(v=>v>=0?'#F26522':'#FCA5A5')}
+    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>(v>=0?'+':'')+fmt(v)}}}});
+  },50);
+}
+
+// ── UI ─────────────────────────────────────────────────────────────────────
+window.T=(id,btn)=>{
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('a'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('a'));
+  document.getElementById('p-'+id).classList.add('a'); btn.classList.add('a');
+};
+function showLoading(msg){ document.getElementById('loading').style.display='flex'; document.getElementById('content').style.display='none'; document.getElementById('loading-txt').textContent=msg||'Cargando...'; }
+function hideLoading(){ document.getElementById('loading').style.display='none'; document.getElementById('content').style.display='block'; }
+function setLoadingTxt(t){ document.getElementById('loading-txt').textContent=t; }
+</script>
+</body>
+</html>
