@@ -220,7 +220,7 @@ function renderCalendar(mi) {
           cells += `<td class="inactive-cell"></td>`;
         } else {
           // Si es objeto EXT mostrar las horas, si es undefined usar hd
-          const rawVal    = data.days ? data.days[String(d)] : undefined;
+          const rawVal    = pData.days ? pData.days[String(d)] : undefined;
           const displayVal = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
             ? rawVal.hours
             : (rawVal !== undefined ? rawVal : hd);
@@ -228,14 +228,16 @@ function renderCalendar(mi) {
             || (typeof displayVal === 'number' && displayVal > hd);
           const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80'};
           const isCode  = typeof displayVal === 'string' && BG[displayVal];
-          const cellBg  = isCode ? BG[displayVal] : bg;
-          const fontW   = isCode ? '600' : '400';
+          const isExt   = isExtDay;
+          const cellBg  = isCode ? BG[displayVal] : isExt ? '#FFCC80' : bg;
+          const fontW   = (isCode || isExt) ? '600' : '400';
+          const fontColor = isCode ? '#333' : isExt ? '#7B3800' : 'var(--text)';
           if(typeof displayVal === 'number') total += displayVal;
           cells += `<td style="background-color:${cellBg}">
             <input class="day-input" type="text" value="${displayVal}"
               data-pid="${pid}" data-day="${d}" data-hd="${hd}"
               onfocus="onFocus(this)" onblur="onBlur(this)" onkeydown="onKey(event,this)"
-              style="font-weight:${fontW};color:${isCode?'#333':'var(--text)'}">
+              style="font-weight:${fontW};color:${fontColor}">
           </td>`;
         }
       }
