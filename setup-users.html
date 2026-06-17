@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Setup usuarios</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F4F4F6;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+.card{background:#fff;border-radius:16px;padding:2rem;max-width:600px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+h2{font-size:18px;font-weight:600;color:#0D1B4B;margin-bottom:.5rem}
+p{font-size:13px;color:#6B7280;margin-bottom:1.5rem;line-height:1.6}
+.btn{background:#0D1B4B;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;width:100%}
+.btn:disabled{background:#9CA3AF;cursor:not-allowed}
+.log{background:#1a1a1a;border-radius:8px;padding:1rem;font-family:monospace;font-size:12px;color:#4ade80;max-height:400px;overflow-y:auto;margin-top:1rem;display:none}
+.log .err{color:#f87171}
+.log .info{color:#60a5fa}
+.warn{background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:.875rem 1rem;font-size:12px;color:#991B1B;margin-bottom:1rem}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>⚙️ Inicializar usuarios en Firebase</h2>
+  <p>Este script crea los documentos de usuario en Firestore con sus roles asignados. Solo hay que ejecutarlo una vez. <strong>joaquin.camara@dxc.com</strong> se asigna como <strong>admin</strong>, el resto como <strong>user</strong>.</p>
+  <div class="warn">⚠️ Ejecutar solo una vez. Si se vuelve a ejecutar sobreescribirá los roles existentes.</div>
+  <button class="btn" id="btn-setup" onclick="setupUsers()">Inicializar usuarios</button>
+  <div class="log" id="log"></div>
+</div>
+
+<script type="module">
+import { auth, db, onAuthStateChanged, googleProvider, signInWithPopup, doc, setDoc, writeBatch, collection }
+  from './firebase-config.js';
+
+const USERS = [
+  {email:"alfonso.portillo@dxc.com",role:"user",name:"Alfonso Portillo"},
+  {email:"ana.moreno2@dxc.com",role:"user",name:"Ana Moreno"},
+  {email:"anamaria.papuc@dxc.com",role:"user",name:"Ana Papuc"},
+  {email:"andres.milea2@dxc.com",role:"user",name:"Andres Milea"},
+  {email:"bruno.ruiz@dxc.com",role:"user",name:"Bruno Ruiz"},
+  {email:"daniel.cumplido@dxc.com",role:"user",name:"Daniel Cumplido"},
+  {email:"david.nicolau2@dxc.com",role:"user",name:"David Nicolau"},
+  {email:"enrique.quintana2@dxc.com",role:"user",name:"Enrique Quintana"},
+  {email:"federico.urrutia@dxc.com",role:"user",name:"Federico Urrutia"},
+  {email:"ferran.mas@dxc.com",role:"user",name:"Ferran Mas"},
+  {email:"guillermo.hernandez2@dxc.com",role:"user",name:"Guillermo Hernandez"},
+  {email:"jcallefidalg@dxc.com",role:"user",name:"Javier Calle"},
+  {email:"javier.garcia5@dxc.com",role:"user",name:"Javier Garcia"},
+  {email:"joaquin.camara@dxc.com",role:"admin",name:"Joaquin Camara"},
+  {email:"jordi.julia2@dxc.com",role:"user",name:"Jordi Julià"},
+  {email:"josejavier.perez@dxc.com",role:"user",name:"Jose Javier Pérez"},
+  {email:"josep.roura@dxc.com",role:"user",name:"Josep Roura"},
+  {email:"lourdes.gonzalez@dxc.com",role:"user",name:"Lourdes González"},
+  {email:"luisa.velasco-jimenez@dxc.com",role:"user",name:"Luisa Velasco"},
+  {email:"marc.freixanet@dxc.com",role:"user",name:"Marc Freixanet"},
+  {email:"marco.vegagalindo@dxc.com",role:"user",name:"Marco Antonio Vega"},
+  {email:"mariaaranzazu.alonso@dxc.com",role:"user",name:"Maria Aranzazu"},
+  {email:"maria.orta@dxc.com",role:"user",name:"Maria Orta"},
+  {email:"marino.lopez@dxc.com",role:"user",name:"Marino Lopez"},
+  {email:"maisabel.collado@dxc.com",role:"user",name:"Marisa Collado"},
+  {email:"marta.grimaldos2@dxc.com",role:"user",name:"Marta Grimaldos"},
+  {email:"noelia.izquierdo@dxc.com",role:"user",name:"Noelia Izquierdo"},
+  {email:"oscar.galcera@dxc.com",role:"user",name:"Oscar Galcera"},
+  {email:"pablo.simon@dxc.com",role:"user",name:"Pablo Simon"},
+  {email:"rosendo.vilchez@dxc.com",role:"user",name:"Rosendo Vilchez"},
+  {email:"ruben.monerris3@dxc.com",role:"user",name:"Ruben Monerris"},
+  {email:"s.shaikafsana@dxc.com",role:"user",name:"Afsana"},
+  {email:"annapurna.shivanand@dxc.com",role:"user",name:"Annapoorna"},
+  {email:"harika.kadimi@dxc.com",role:"user",name:"Harika Kadimi"},
+  {email:"harsh.shukla2@dxc.com",role:"user",name:"Harsh"},
+  {email:"h.kanaganapalli@dxc.com",role:"user",name:"Harshitha K"},
+  {email:"harshitha.m@dxc.com",role:"user",name:"Harshitha M"},
+  {email:"jyothsna.g@dxc.com",role:"user",name:"Jyothsna G"},
+  {email:"megha.koshy@dxc.com",role:"user",name:"Megha"},
+  {email:"moulika.m@dxc.com",role:"user",name:"Moulika M"},
+  {email:"mounika.vemuri@dxc.com",role:"user",name:"Mounika vemuri"},
+  {email:"dnavudu@dxc.com",role:"user",name:"Navudu Devi Anudeesh"},
+  {email:"neeraj.hn@dxc.com",role:"user",name:"Neeraj HN"},
+  {email:"gunasekaran.palraj@dxc.com",role:"user",name:"Palraj Gunasekaran"},
+  {email:"pooja.sl@dxc.com",role:"user",name:"Pooja SL"},
+  {email:"sandhya.rachepalli@dxc.com",role:"user",name:"Sandhya Rachepalli"},
+  {email:"satya.swa.adusumilli@dxc.com",role:"user",name:"Satya Swathi Adusumilli"},
+  {email:"shruthi.r3@dxc.com",role:"user",name:"Shruthi R"},
+  {email:"smita.hadaginal@dxc.com",role:"user",name:"Smita Hadaginal"},
+  {email:"bhavani.ss@dxc.com",role:"user",name:"SS Bhavani"},
+  {email:"vijitha.ravichandran@dxc.com",role:"user",name:"Vijitha"},
+  {email:"v.perugupalli@dxc.com",role:"user",name:"Visalakshmi Sireesha"},
+];
+
+const logEl = document.getElementById('log');
+function log(msg, type='') {
+  logEl.style.display = 'block';
+  const line = document.createElement('div');
+  line.className = type; line.textContent = msg;
+  logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight;
+}
+
+onAuthStateChanged(auth, user => {
+  if(!user) {
+    signInWithPopup(auth, googleProvider).catch(e => alert('Login necesario: ' + e.message));
+  }
+});
+
+window.setupUsers = async () => {
+  const btn = document.getElementById('btn-setup');
+  btn.disabled = true; btn.textContent = 'Inicializando...';
+  log('Iniciando setup de usuarios...', 'info');
+
+  try {
+    // Subir en batches de 500 (límite de Firestore)
+    const batch = writeBatch(db);
+    USERS.forEach(u => {
+      const id = u.email.replace(/[@.]/g, '_');
+      batch.set(doc(db, 'users', id), {
+        email:     u.email,
+        name:      u.name,
+        role:      u.role,
+        createdAt: new Date().toISOString()
+      });
+    });
+    await batch.commit();
+
+    log(`✅ ${USERS.length} usuarios creados en Firestore`);
+    log(`  👑 Admin: joaquin.camara@dxc.com`, 'info');
+    log(`  👤 Users: ${USERS.filter(u=>u.role==='user').length} personas`);
+    log('');
+    log('✅ Setup completado. Puedes cerrar esta página.', 'info');
+    btn.textContent = '✅ Completado';
+    btn.style.background = '#166534';
+  } catch(e) {
+    log('❌ Error: ' + e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = 'Reintentar';
+  }
+};
+</script>
+</body>
+</html>

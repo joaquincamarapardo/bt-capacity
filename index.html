@@ -112,17 +112,35 @@ window.doLogout = async () => {
   await signOut(auth);
 };
 
-onAuthStateChanged(auth, user => {
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+const dbLocal = getFirestore();
+
+onAuthStateChanged(auth, async user => {
   if(user) {
+    // Verificar si el usuario está autorizado
+    const id = user.email.replace(/[@.]/g, '_');
+    const userDoc = await getDoc(doc(dbLocal, 'users', id));
+    if(!userDoc.exists()) {
+      await signOut(auth);
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app-screen').style.display   = 'none';
+      alert('❌ Acceso no autorizado. Contacta con el administrador del equipo BT.');
+      return;
+    }
+    const userData = userDoc.data();
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display  = 'flex';
+    document.getElementById('app-screen').style.display   = 'flex';
     document.getElementById('user-name').textContent  = user.displayName || user.email;
     document.getElementById('user-email').textContent = user.email;
-    document.getElementById('user-avatar').textContent =
-      (user.displayName || user.email)[0].toUpperCase();
+    document.getElementById('user-avatar').textContent = (user.displayName || user.email)[0].toUpperCase();
+    // Guardar rol en sessionStorage para otros módulos
+    sessionStorage.setItem('userRole', userData.role || 'user');
+    sessionStorage.setItem('userEmail', user.email);
   } else {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-screen').style.display   = 'none';
+    sessionStorage.removeItem('userRole');
   }
 });
 </script>

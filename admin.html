@@ -64,6 +64,19 @@ tr:hover td{background:#F9FAFB}
 .badge-active{background:#DCFCE7;color:#166534;padding:2px 7px;border-radius:10px;font-size:10px}
 .badge-inactive{background:#FEE2E2;color:#991B1B;padding:2px 7px;border-radius:10px;font-size:10px}
 @media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}.hrs-grid{grid-template-columns:repeat(4,1fr)}}
+
+/* Modal edición */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:1.5rem;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.modal-header h3{font-size:16px;font-weight:600;color:var(--navy)}
+.modal-close{background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
+.modal-close:hover{color:var(--text)}
+.btn-edit{background:var(--pale);color:var(--navy);border:1px solid #BFDBFE;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500}
+.btn-edit:hover{background:#DBEAFE}
+.btn-delete{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500;margin-left:4px}
+.btn-delete:hover{background:#FEE2E2}
 </style>
 </head>
 <body>
@@ -166,7 +179,7 @@ tr:hover td{background:#F9FAFB}
   <!-- ROSTER -->
   <div id="tab-roster" class="panel">
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1rem;align-items:center">
-      <button class="btn-primary" onclick="downloadExcel()">⬇️ Descargar Excel</button>
+      <button class="btn-primary" onclick="downloadExcel()" id="btn-download">⬇️ Descargar Excel</button>
       <div style="display:flex;gap:8px;align-items:center;background:#fff;padding:8px 12px;border-radius:8px;border:1px solid var(--border)">
         <span style="font-size:12px;color:var(--muted);font-weight:500">Copiar emails:</span>
         <select id="email-mode" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
@@ -183,10 +196,65 @@ tr:hover td{background:#F9FAFB}
         <thead><tr>
           <th>#</th><th>Nombre</th><th>Usuario</th><th>Email</th>
           <th>Equipo</th><th>Modo</th><th>Ciudad</th>
-          <th>Alta</th><th>Baja</th><th>Flex</th>
+          <th>Alta</th><th>Baja</th><th>Flex</th><th>Acciones</th>
         </tr></thead>
         <tbody id="roster-tbody"><tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</td></tr></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal edición -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>✏️ Editar persona</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="section">Datos de identificación</div>
+    <div class="grid3">
+      <div class="field"><label>Nombre completo *</label><input type="text" id="e-nombre"></div>
+      <div class="field"><label>Usuario (ID)</label><input type="text" id="e-usuario"></div>
+      <div class="field"><label>Email *</label><input type="email" id="e-email"></div>
+    </div>
+    <div class="section">Asignación</div>
+    <div class="grid3">
+      <div class="field"><label>Equipo</label>
+        <select id="e-equipo"><option>BT</option><option>Financiacion</option><option>Seguros</option><option>MMPP</option><option>Pagos</option><option>Pasivo</option><option>VOAC</option><option>Halley</option><option>GT</option></select>
+      </div>
+      <div class="field"><label>Modalidad</label>
+        <select id="e-modalidad"><option>Onsite</option><option>Offshore</option></select>
+      </div>
+      <div class="field"><label>Ciudad</label><input type="text" id="e-ciudad"></div>
+    </div>
+    <div class="section">Periodo</div>
+    <div class="grid2">
+      <div class="field"><label>Fecha de alta</label><input type="date" id="e-inicio"></div>
+      <div class="field"><label>Fecha de baja (vaciar para reactivar)</label><input type="date" id="e-fin"></div>
+    </div>
+    <div class="section">Horas por mes</div>
+    <div class="hrs-grid">
+      <div class="hrs-cell"><label>Ene</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Feb</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Mar</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Abr</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>May</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Jun</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Jul</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Ago</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Sep</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Oct</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Nov</label><input class="e-hrs" type="number" min="1" max="12"></div>
+      <div class="hrs-cell"><label>Dic</label><input class="e-hrs" type="number" min="1" max="12"></div>
+    </div>
+    <div class="section">Jornada flexible</div>
+    <div class="toggle-row">
+      <label class="toggle"><input type="checkbox" id="e-flex"><span class="slider"></span></label>
+      <div class="toggle-info"><strong>Acuerdo de jornada flexible</strong><span>Flex work</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarEdicion()">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -197,9 +265,22 @@ import { auth, db, onAuthStateChanged, collection, getDocs, doc, setDoc, getDoc,
 
 const MNS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-// Auth guard
+// Auth guard — solo admins pueden editar/eliminar
 onAuthStateChanged(auth, user => {
   if(!user) { window.location = 'index.html'; return; }
+  const role = sessionStorage.getItem('userRole') || 'user';
+  window._isAdmin = role === 'admin';
+  // Mostrar/ocultar pestañas de alta y baja solo para admins
+  if(!window._isAdmin) {
+    document.querySelectorAll('.tab').forEach(t => {
+      if(t.textContent.includes('Alta') || t.textContent.includes('Baja')) {
+        t.style.display = 'none';
+      }
+    });
+    // Mostrar directamente el roster
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-roster').classList.add('active');
+  }
   loadRoster();
 });
 
@@ -227,6 +308,7 @@ async function loadRoster() {
       <td>${p.start||'—'}</td>
       <td>${p.end||'—'}</td>
       <td>${p.flex?'✓':''}</td>
+      <td>${window._isAdmin ? `<button class="btn-edit" onclick="openEdit('${p.id}')">✏️ Editar</button><button class="btn-delete" onclick="eliminarPersona('${p.id}','${p.name}')">🗑️</button>` : '—'}</td>
     </tr>`).join('');
   }
 
@@ -344,6 +426,83 @@ window.copyEmails = () => {
     setTimeout(() => el.style.display = 'none', 3000);
   });
 };
+
+// ── Edición ──────────────────────────────────────────────────────────────
+window.openEdit = (id) => {
+  const p = window._rosterPeople.find(x => x.id === id);
+  if(!p) return;
+  window._editId = id;
+  document.getElementById('e-nombre').value   = p.name    || '';
+  document.getElementById('e-usuario').value  = p.username|| '';
+  document.getElementById('e-email').value    = p.email   || '';
+  document.getElementById('e-ciudad').value   = p.city    || '';
+  document.getElementById('e-inicio').value   = p.start   || '';
+  document.getElementById('e-fin').value      = p.end     || '';
+  document.getElementById('e-flex').checked   = !!p.flex;
+  document.getElementById('e-equipo').value   = p.team    || 'BT';
+  document.getElementById('e-modalidad').value= p.mode    || 'Onsite';
+  const hrs = p.hrs || [8,8,8,8,8,8,8,8,8,8,8,8];
+  document.querySelectorAll('.e-hrs').forEach((inp,i) => inp.value = hrs[i]||8);
+  document.getElementById('modal-overlay').classList.add('open');
+};
+
+window.closeModal = () => {
+  document.getElementById('modal-overlay').classList.remove('open');
+  window._editId = null;
+};
+
+window.guardarEdicion = async () => {
+  const id = window._editId; if(!id) return;
+  const nombre = document.getElementById('e-nombre').value.trim();
+  const email  = document.getElementById('e-email').value.trim();
+  if(!nombre || !email) { alert('Nombre y email son obligatorios.'); return; }
+  const hrs = Array.from(document.querySelectorAll('.e-hrs')).map(i => parseInt(i.value)||8);
+  const fin = document.getElementById('e-fin').value;
+  const data = {
+    name:     nombre,
+    username: document.getElementById('e-usuario').value.trim(),
+    email:    email,
+    team:     document.getElementById('e-equipo').value,
+    mode:     document.getElementById('e-modalidad').value,
+    city:     document.getElementById('e-ciudad').value.trim(),
+    start:    document.getElementById('e-inicio').value,
+    end:      fin || null,
+    flex:     document.getElementById('e-flex').checked,
+    hrs:      hrs
+  };
+  try {
+    await setDoc(doc(db, 'roster', id), data, { merge: true });
+    closeModal();
+    await loadRoster();
+    // Mostrar confirmación breve
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#166534;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:13px;z-index:9999';
+    msg.textContent = '✅ Cambios guardados correctamente';
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 3000);
+  } catch(e) { alert('Error al guardar: ' + e.message); }
+};
+
+window.eliminarPersona = async (id, nombre) => {
+  if(!confirm(`⚠️ ¿Eliminar a ${nombre} del roster?
+
+Esta acción no se puede deshacer.`)) return;
+  try {
+    const { deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await deleteDoc(doc(db, 'roster', id));
+    await loadRoster();
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#991B1B;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:13px;z-index:9999';
+    msg.textContent = `🗑️ ${nombre} eliminado del roster`;
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 3000);
+  } catch(e) { alert('Error al eliminar: ' + e.message); }
+};
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if(e.target === document.getElementById('modal-overlay')) closeModal();
+});
 
 window.showTab = (id, btn) => {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
