@@ -63,7 +63,7 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
 .code-S{background:#FFCDD2!important}
 .code-T{background:#B2EBF2!important}
 .code-M{background:#FCE4EC!important}
-.code-propd{background:#FFF9C4!important}
+.code-COM{background:#A5D6A7!important}
 .code-LD{background:#E8F5E9!important}
 .code-HPY{background:#B3E5FC!important}
 </style>
@@ -90,9 +90,10 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
     <div class="legend-item" onclick="insertCode('S')"><div class="legend-dot" style="background:#FFCDD2"></div>S — Baja</div>
     <div class="legend-item" onclick="insertCode('T')"><div class="legend-dot" style="background:#B2EBF2"></div>T — Formación</div>
     <div class="legend-item" onclick="insertCode('M')"><div class="legend-dot" style="background:#FCE4EC"></div>M — Maternidad</div>
-    <div class="legend-item" onclick="insertCode('propd')"><div class="legend-dot" style="background:#FFF9C4"></div>propd — Flex</div>
+    <div class="legend-item" onclick="insertCode('COM')"><div class="legend-dot" style="background:#A5D6A7"></div>COM — Compensados</div>
     <div class="legend-item" onclick="insertCode('LD')"><div class="legend-dot" style="background:#E8F5E9"></div>LD — Libre disp.</div>
     <div class="legend-item" onclick="insertCode('HPY')"><div class="legend-dot" style="background:#B3E5FC"></div>HPY — Vac. ant.</div>
+    <div class="legend-item" style="border-color:#FFCC80;background:#FFF8F0"><div class="legend-dot" style="background:#FFCC80"></div>EXT — Dedicación extra (escribe horas > estándar)</div>
   </div>
   <div id="cal-container"></div>
 </div>
@@ -105,8 +106,8 @@ const MN   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov",
 const MNL  = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
 const YEAR = 2026;
-const CODES = ['H','L','S','T','M','propd','LD','HPY'];
-const CODE_COLORS = {H:'code-H',L:'code-L',S:'code-S',T:'code-T',M:'code-M',propd:'code-propd',LD:'code-LD',HPY:'code-HPY'};
+const CODES = ['H','L','S','T','M','COM','LD','HPY'];
+const CODE_COLORS = {H:'code-H',L:'code-L',S:'code-S',T:'code-T',M:'code-M',COM:'code-COM',LD:'code-LD',HPY:'code-HPY'};
 const DAY_NAMES = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
 
 let curMonth = new Date().getMonth();
@@ -218,8 +219,14 @@ function renderCalendar(mi) {
         } else if(inactive) {
           cells += `<td class="inactive-cell"></td>`;
         } else {
-          const displayVal = val !== undefined ? val : hd;
-          const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',propd:'#FFF9C4',LD:'#E8F5E9',HPY:'#B3E5FC'};
+          // Si es objeto EXT mostrar las horas, si es undefined usar hd
+          const rawVal    = data.days ? data.days[String(d)] : undefined;
+          const displayVal = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
+            ? rawVal.hours
+            : (rawVal !== undefined ? rawVal : hd);
+          const isExtDay  = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
+            || (typeof displayVal === 'number' && displayVal > hd);
+          const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80'};
           const isCode  = typeof displayVal === 'string' && BG[displayVal];
           const cellBg  = isCode ? BG[displayVal] : bg;
           const fontW   = isCode ? '600' : '400';
@@ -291,7 +298,7 @@ window.onFocus = (input) => { focusedInput = input; input.select(); };
 window.onBlur = (input) => {
   const raw  = input.value.trim();
   const valUp = raw.toUpperCase();
-  // Buscar código ignorando mayúsculas (H, L, S, propd, LD, HPY...)
+  // Buscar código ignorando mayúsculas (H, L, S, COM, LD, HPY...)
   const matchedCode = CODES.find(c => c.toUpperCase() === valUp);
   if(matchedCode) {
     input.value = matchedCode;
@@ -299,10 +306,18 @@ window.onBlur = (input) => {
     input.style.fontWeight = '600';
     input.style.color = '#333';
   } else if(raw !== '' && !isNaN(raw)) {
-    input.value = parseInt(raw);
-    applyColor(input.parentElement, null);
-    input.style.fontWeight = '400';
-    input.style.color = 'var(--text)';
+    const numVal = parseInt(raw);
+    const hdVal  = parseInt(input.dataset.hd) || 8;
+    input.value = numVal;
+    if(numVal > hdVal) {
+      input.parentElement.style.backgroundColor = '#FFCC80';
+      input.style.fontWeight = '600';
+      input.style.color = '#7B3800';
+    } else {
+      applyColor(input.parentElement, null);
+      input.style.fontWeight = '400';
+      input.style.color = 'var(--text)';
+    }
   } else if(raw === '') {
     applyColor(input.parentElement, null);
     input.style.fontWeight = '400';
@@ -313,7 +328,7 @@ window.onBlur = (input) => {
 function applyColor(td, code) {
   const BG_COLORS = {
     H:'#FFD700', L:'#90CAF9', S:'#FFCDD2', T:'#B2EBF2',
-    M:'#FCE4EC', propd:'#FFF9C4', LD:'#E8F5E9', HPY:'#B3E5FC'
+    M:'#FCE4EC', COM:'#A5D6A7', LD:'#E8F5E9', HPY:'#B3E5FC', EXT:'#FFCC80'
   };
   td.style.backgroundColor = code ? (BG_COLORS[code] || '') : '';
 }
@@ -342,8 +357,11 @@ async function saveCell(input) {
   const existing= calData[docId] || { days: {} };
   const days    = { ...(existing.days || {}) };
 
+  const numVal = (!isNaN(val) && val !== '') ? parseInt(val) : null;
+  const hdVal  = parseInt(input.dataset.hd) || 8;
   const parsed = CODES.includes(val.toLowerCase()) ? val.toLowerCase() :
-                 (!isNaN(val) && val !== '') ? parseInt(val) : null;
+                 (numVal !== null && numVal > hdVal) ? { type: 'EXT', hours: numVal } :
+                 (numVal !== null) ? numVal : null;
 
   if(parsed !== null) days[day] = parsed;
   else delete days[day];

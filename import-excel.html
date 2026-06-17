@@ -75,7 +75,7 @@ const MONTHS    = ["January","February","March","April","May","June","July","Aug
 const TAB_ICONS = ["❄️","🌧️","🌱","🌸","🌞","☀️","🏖️","🌻","🍂","🎃","🍂","🎄"];
 const MN        = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
-const ABSENCE_CODES = new Set(['H','L','S','T','propd','M','HPY','LD']);
+const ABSENCE_CODES = new Set(['H','L','S','T','COM','M','HPY','LD']);
 const YEAR = 2026;
 
 const logEl = document.getElementById('log');
@@ -190,17 +190,24 @@ window.handleFile = async (file) => {
         const wd = (fwMon + d - 1) % 7;
         if(wd >= 5) continue;
         const v = row[col];
-        // Leer nota propd
+        // Leer nota COM
         const colLetter = XLSX.utils.encode_col(col);
         const cellAddr  = `${colLetter}${r + 1}`;
         const wsCell    = ws[cellAddr];
-        const hasPropdNote = wsCell && wsCell.c &&
-          wsCell.c.some(c => c.t && c.t.toLowerCase().includes('propd'));
+        const hasCOMNote = wsCell && wsCell.c &&
+          wsCell.c.some(c => c.t && c.t.toLowerCase().includes('COM'));
 
         if(typeof v === 'string' && ABSENCE_CODES.has(v)) {
           days[String(d)] = v;
         } else if(typeof v === 'number' && v > 0) {
-          days[String(d)] = hasPropdNote ? 'propd' : v;
+          if(hasCOMNote) {
+            days[String(d)] = 'COM';
+          } else if(v > hd) {
+            // Horas superiores al estándar → día EXT
+            days[String(d)] = { type: 'EXT', hours: v };
+          } else {
+            days[String(d)] = v;
+          }
         }
       }
 
