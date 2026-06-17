@@ -219,13 +219,16 @@ function renderCalendar(mi) {
           cells += `<td class="inactive-cell"></td>`;
         } else {
           const displayVal = val !== undefined ? val : hd;
-          const codeClass  = typeof displayVal === 'string' && CODE_COLORS[displayVal] ? CODE_COLORS[displayVal] : '';
+          const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',propd:'#FFF9C4',LD:'#E8F5E9',HPY:'#B3E5FC'};
+          const isCode  = typeof displayVal === 'string' && BG[displayVal];
+          const cellBg  = isCode ? BG[displayVal] : bg;
+          const fontW   = isCode ? '600' : '400';
           if(typeof displayVal === 'number') total += displayVal;
-          cells += `<td class="${codeClass}" style="background-color:${!codeClass?bg:''}">
+          cells += `<td style="background-color:${cellBg}">
             <input class="day-input" type="text" value="${displayVal}"
               data-pid="${pid}" data-day="${d}" data-hd="${hd}"
               onfocus="onFocus(this)" onblur="onBlur(this)" onkeydown="onKey(event,this)"
-              style="color:${codeClass?'#333':'var(--text)'}">
+              style="font-weight:${fontW};color:${isCode?'#333':'var(--text)'}">
           </td>`;
         }
       }
@@ -286,18 +289,34 @@ function renderCalendar(mi) {
 window.onFocus = (input) => { focusedInput = input; input.select(); };
 
 window.onBlur = (input) => {
-  const val = input.value.trim().toUpperCase();
-  if(CODES.includes(val)) {
-    input.value = val.toLowerCase();
-    input.parentElement.className = CODE_COLORS[val.toLowerCase()] || '';
-  } else if(!isNaN(val) && val !== '') {
-    input.value = parseInt(val);
-    input.parentElement.className = '';
-  } else if(val === '') {
-    input.value = '';
+  const raw  = input.value.trim();
+  const valUp = raw.toUpperCase();
+  // Buscar código ignorando mayúsculas (H, L, S, propd, LD, HPY...)
+  const matchedCode = CODES.find(c => c.toUpperCase() === valUp);
+  if(matchedCode) {
+    input.value = matchedCode;
+    applyColor(input.parentElement, matchedCode);
+    input.style.fontWeight = '600';
+    input.style.color = '#333';
+  } else if(raw !== '' && !isNaN(raw)) {
+    input.value = parseInt(raw);
+    applyColor(input.parentElement, null);
+    input.style.fontWeight = '400';
+    input.style.color = 'var(--text)';
+  } else if(raw === '') {
+    applyColor(input.parentElement, null);
+    input.style.fontWeight = '400';
   }
   saveCell(input);
 };
+
+function applyColor(td, code) {
+  const BG_COLORS = {
+    H:'#FFD700', L:'#90CAF9', S:'#FFCDD2', T:'#B2EBF2',
+    M:'#FCE4EC', propd:'#FFF9C4', LD:'#E8F5E9', HPY:'#B3E5FC'
+  };
+  td.style.backgroundColor = code ? (BG_COLORS[code] || '') : '';
+}
 
 window.onKey = (e, input) => {
   if(e.key === 'Enter' || e.key === 'Tab') { input.blur(); }

@@ -193,6 +193,7 @@ async function loadRoster() {
   const people = [];
   snap.forEach(d => people.push({id: d.id, ...d.data()}));
   people.sort((a,b) => a.name.localeCompare(b.name));
+  window._rosterPeople = people; // para descarga y emails
 
   // Tabla roster
   const tbody = document.getElementById('roster-tbody');
@@ -282,6 +283,50 @@ window.confirmarBaja = async () => {
 window.resetBaja = () => {
   document.getElementById('b-nombre').value = '';
   document.getElementById('b-fecha').value  = '';
+};
+
+// ── Descargar Excel ──────────────────────────────────────────────────────
+window.downloadExcel = () => {
+  if(!window._rosterPeople || !window._rosterPeople.length) {
+    alert('No hay datos en el roster todavía.'); return;
+  }
+  const MNS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const headers = ['#','Nombre','Usuario','Email','Equipo','Modalidad','Ciudad','Fecha alta','Fecha baja','Flex work',
+    ...MNS.map(m => `H ${m}`)];
+  const rows = window._rosterPeople.map((p,i) => [
+    i+1, p.name||'', p.username||'', p.email||'', p.team||'BT',
+    p.mode||'', p.city||'', p.start||'', p.end||'', p.flex?'Sí':'No',
+    ...(p.hrs||[8,8,8,8,8,8,8,8,8,8,8,8])
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'BT_Team_Roster.csv';
+  a.click();
+};
+
+// ── Copiar emails ──────────────────────────────────────────────────────────
+window.copyEmails = () => {
+  if(!window._rosterPeople || !window._rosterPeople.length) {
+    alert('No hay datos en el roster todavía.'); return;
+  }
+  const mode = document.getElementById('email-mode').value;
+  const today = new Date().toISOString().split('T')[0];
+  const filtered = window._rosterPeople.filter(p => {
+    const active = !p.end || p.end >= today;
+    if(!active) return false;
+    if(mode === 'Onsite')   return p.mode === 'Onsite';
+    if(mode === 'Offshore') return p.mode === 'Offshore';
+    return true;
+  }).filter(p => p.email);
+  const emails = filtered.map(p => p.email).join('; ');
+  navigator.clipboard.writeText(emails).then(() => {
+    const el = document.getElementById('email-copied');
+    el.textContent = `✓ ${filtered.length} emails copiados`;
+    el.style.display = 'inline';
+    setTimeout(() => el.style.display = 'none', 3000);
+  });
 };
 
 window.showTab = (id, btn) => {
