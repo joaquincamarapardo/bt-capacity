@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Gestión de equipo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280;--pale:#E8F0FB}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray);min-height:100vh}
+.topbar{background:var(--navy);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.back-btn{color:#90CAF9;text-decoration:none;font-size:13px;display:flex;align-items:center;gap:4px}
+.back-btn:hover{color:#fff}
+.topbar-title{font-size:15px;font-weight:500;color:#fff}
+.topbar-sub{font-size:11px;color:#90CAF9}
+.content{max-width:900px;margin:0 auto;padding:1.5rem}
+.tabs{display:flex;background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:1.5rem}
+.tab{flex:1;padding:12px;font-size:13px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-weight:400;transition:all .15s}
+.tab.active{background:var(--navy);color:#fff;font-weight:500}
+.panel{display:none}.panel.active{display:block}
+.form-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:1.5rem}
+.section{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:1.25rem 0 .75rem;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.field input,.field select{font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--navy)}
+.hrs-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:6px}
+.hrs-cell{display:flex;flex-direction:column;align-items:center;gap:3px}
+.hrs-cell label{font-size:10px;color:var(--muted);font-weight:500}
+.hrs-cell input{width:100%;font-size:12px;padding:6px 4px;text-align:center;border-radius:6px;border:1px solid var(--border)}
+.toggle-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--gray)}
+.toggle{position:relative;width:38px;height:21px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#CBD5E1;border-radius:21px;cursor:pointer;transition:.2s}
+.slider:before{content:'';position:absolute;width:15px;height:15px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.slider{background:var(--orange)}
+.toggle input:checked+.slider:before{transform:translateX(17px)}
+.toggle-info strong{font-size:13px;color:var(--text);display:block}
+.toggle-info span{font-size:11px;color:var(--muted)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn-primary{background:var(--navy);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.btn-primary:hover{background:#1a2f6e}
+.btn-danger{background:var(--orange);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer}
+.note{font-size:12px;color:var(--muted);background:var(--pale);border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;margin-top:1rem}
+.note-warn{background:#FFF5F5;border-color:#FECACA;color:#991B1B}
+.success-msg{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px 16px;font-size:13px;color:#166534;margin-top:1rem;display:none}
+
+/* Roster table */
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-top:1rem}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--navy);color:#fff;padding:8px 10px;text-align:left;font-weight:500;white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#F9FAFB}
+.badge-on{background:#DBEAFE;color:#1E40AF;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:500}
+.badge-off{background:#FEF3C7;color:#92400E;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:500}
+.badge-active{background:#DCFCE7;color:#166534;padding:2px 7px;border-radius:10px;font-size:10px}
+.badge-inactive{background:#FEE2E2;color:#991B1B;padding:2px 7px;border-radius:10px;font-size:10px}
+@media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}.hrs-grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="back-btn">← Inicio</a>
+    <div>
+      <div class="topbar-title">Gestión de equipo BT</div>
+      <div class="topbar-sub">Altas · Bajas · Team Roster</div>
+    </div>
+  </div>
+</div>
+
+<div class="content">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('alta',this)">➕ Alta</button>
+    <button class="tab" onclick="showTab('baja',this)">➖ Baja</button>
+    <button class="tab" onclick="showTab('roster',this)">👥 Team Roster</button>
+  </div>
+
+  <!-- ALTA -->
+  <div id="tab-alta" class="panel active">
+    <div class="form-card">
+      <div class="section">Datos de identificación</div>
+      <div class="grid3">
+        <div class="field"><label>Nombre completo *</label><input type="text" id="a-nombre" placeholder="Ana García López"></div>
+        <div class="field"><label>Usuario (ID)</label><input type="text" id="a-usuario" placeholder="X123456"></div>
+        <div class="field"><label>Correo electrónico *</label><input type="email" id="a-email" placeholder="ana.garcia@dxc.com"></div>
+      </div>
+      <div class="section">Asignación</div>
+      <div class="grid3">
+        <div class="field"><label>Equipo *</label>
+          <select id="a-equipo"><option>BT</option><option>Financiacion</option><option>Seguros</option><option>MMPP</option><option>Pagos</option><option>Pasivo</option><option>VOAC</option><option>Halley</option><option>GT</option></select>
+        </div>
+        <div class="field"><label>Modalidad *</label>
+          <select id="a-modalidad" onchange="setHrsDefault()"><option>Onsite</option><option>Offshore</option></select>
+        </div>
+        <div class="field"><label>Ciudad *</label><input type="text" id="a-ciudad" placeholder="Alicante"></div>
+      </div>
+      <div class="section">Periodo</div>
+      <div class="grid2">
+        <div class="field"><label>Fecha de alta *</label><input type="date" id="a-inicio"></div>
+        <div class="field"><label>Fecha de baja (opcional)</label><input type="date" id="a-fin"></div>
+      </div>
+      <div class="section">Horas por mes</div>
+      <div class="hrs-grid">
+        <div class="hrs-cell"><label>Ene</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Feb</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Mar</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Abr</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>May</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Jun</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Jul</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Ago</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Sep</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Oct</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Nov</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+        <div class="hrs-cell"><label>Dic</label><input class="hrs" type="number" value="8" min="1" max="12"></div>
+      </div>
+      <div class="section">Jornada flexible</div>
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="a-flex"><span class="slider"></span></label>
+        <div class="toggle-info">
+          <strong>Acuerdo de jornada flexible / Flex work</strong>
+          <span>Se registrará en el roster y en los calendarios</span>
+        </div>
+      </div>
+      <div class="note">ℹ️ Al confirmar, la persona se añadirá al roster y aparecerá en los calendarios mensuales correspondientes con sus horas diarias.</div>
+      <div class="success-msg" id="alta-success">✅ Alta registrada correctamente en Firebase.</div>
+      <div class="actions">
+        <button class="btn-secondary" onclick="resetAlta()">Limpiar</button>
+        <button class="btn-primary" onclick="confirmarAlta()">Confirmar alta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BAJA -->
+  <div id="tab-baja" class="panel">
+    <div class="form-card">
+      <div class="section">Seleccionar persona</div>
+      <div class="grid2">
+        <div class="field"><label>Nombre *</label>
+          <select id="b-nombre"><option value="">— Seleccionar persona —</option></select>
+        </div>
+        <div class="field"><label>Fecha de baja *</label><input type="date" id="b-fecha"></div>
+      </div>
+      <div class="field" style="margin-top:12px"><label>Motivo</label>
+        <select id="b-motivo"><option>Fin de contrato</option><option>Rotación interna</option><option>Baja voluntaria</option><option>Otro</option></select>
+      </div>
+      <div class="note note-warn">⚠️ Los días posteriores a la fecha de baja se marcarán como inactivos en los calendarios. Esta acción se puede revertir.</div>
+      <div class="success-msg" id="baja-success">✅ Baja registrada correctamente en Firebase.</div>
+      <div class="actions">
+        <button class="btn-secondary" onclick="resetBaja()">Limpiar</button>
+        <button class="btn-danger" onclick="confirmarBaja()">Confirmar baja</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROSTER -->
+  <div id="tab-roster" class="panel">
+    <div class="tw">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Nombre</th><th>Usuario</th><th>Email</th>
+          <th>Equipo</th><th>Modo</th><th>Ciudad</th>
+          <th>Alta</th><th>Baja</th><th>Flex</th>
+        </tr></thead>
+        <tbody id="roster-tbody"><tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { auth, db, onAuthStateChanged, collection, getDocs, doc, setDoc, getDoc, onSnapshot }
+  from './firebase-config.js';
+
+const MNS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Auth guard
+onAuthStateChanged(auth, user => {
+  if(!user) { window.location = 'index.html'; return; }
+  loadRoster();
+});
+
+// Cargar roster
+async function loadRoster() {
+  const snap = await getDocs(collection(db, 'roster'));
+  const people = [];
+  snap.forEach(d => people.push({id: d.id, ...d.data()}));
+  people.sort((a,b) => a.name.localeCompare(b.name));
+
+  // Tabla roster
+  const tbody = document.getElementById('roster-tbody');
+  if(people.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--muted)">Sin datos — importa el Excel para comenzar</td></tr>';
+  } else {
+    tbody.innerHTML = people.map((p,i) => `<tr>
+      <td>${i+1}</td>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.username||'—'}</td>
+      <td>${p.email||'—'}</td>
+      <td>${p.team||'BT'}</td>
+      <td><span class="${p.mode==='Onsite'?'badge-on':'badge-off'}">${p.mode}</span></td>
+      <td>${p.city||'—'}</td>
+      <td>${p.start||'—'}</td>
+      <td>${p.end||'—'}</td>
+      <td>${p.flex?'✓':''}</td>
+    </tr>`).join('');
+  }
+
+  // Selector baja
+  const sel = document.getElementById('b-nombre');
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  people.filter(p=>!p.end).forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = `${p.name} (${p.mode})`;
+    sel.appendChild(o);
+  });
+}
+
+// Alta
+window.setHrsDefault = () => {
+  const val = document.getElementById('a-modalidad').value === 'Offshore' ? 9 : 8;
+  document.querySelectorAll('.hrs').forEach(i => i.value = val);
+};
+
+window.confirmarAlta = async () => {
+  const nombre = document.getElementById('a-nombre').value.trim();
+  const email  = document.getElementById('a-email').value.trim();
+  const inicio = document.getElementById('a-inicio').value;
+  if(!nombre || !email || !inicio) { alert('Rellena los campos obligatorios: Nombre, Email y Fecha de alta.'); return; }
+
+  const hrs = Array.from(document.querySelectorAll('.hrs')).map(i => parseInt(i.value)||8);
+  const id  = nombre.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+
+  const data = {
+    name:     nombre,
+    username: document.getElementById('a-usuario').value.trim(),
+    email:    email,
+    team:     document.getElementById('a-equipo').value,
+    mode:     document.getElementById('a-modalidad').value,
+    city:     document.getElementById('a-ciudad').value.trim(),
+    start:    inicio,
+    end:      document.getElementById('a-fin').value || null,
+    flex:     document.getElementById('a-flex').checked,
+    hrs:      hrs,
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    await setDoc(doc(db, 'roster', id), data);
+    document.getElementById('alta-success').style.display = 'block';
+    setTimeout(() => document.getElementById('alta-success').style.display = 'none', 3000);
+    loadRoster();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.resetAlta = () => {
+  ['a-nombre','a-usuario','a-email','a-ciudad','a-inicio','a-fin'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('a-flex').checked = false;
+  document.querySelectorAll('.hrs').forEach(i => i.value = 8);
+};
+
+// Baja
+window.confirmarBaja = async () => {
+  const id    = document.getElementById('b-nombre').value;
+  const fecha = document.getElementById('b-fecha').value;
+  if(!id || !fecha) { alert('Selecciona una persona y una fecha de baja.'); return; }
+  try {
+    await setDoc(doc(db, 'roster', id), { end: fecha, motivo: document.getElementById('b-motivo').value }, { merge: true });
+    document.getElementById('baja-success').style.display = 'block';
+    setTimeout(() => document.getElementById('baja-success').style.display = 'none', 3000);
+    loadRoster();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.resetBaja = () => {
+  document.getElementById('b-nombre').value = '';
+  document.getElementById('b-fecha').value  = '';
+};
+
+window.showTab = (id, btn) => {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+};
+</script>
+</body>
+</html>

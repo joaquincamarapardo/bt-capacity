@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Importar Excel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray);min-height:100vh}
+.topbar{background:var(--navy);padding:.875rem 1.5rem;display:flex;align-items:center;gap:12px}
+.back-btn{color:#90CAF9;text-decoration:none;font-size:13px}
+.topbar-title{font-size:15px;font-weight:500;color:#fff}
+.content{max-width:700px;margin:2rem auto;padding:0 1.5rem}
+.card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:1.5rem;margin-bottom:1rem}
+h2{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:.5rem}
+p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:3rem;text-align:center;cursor:pointer;transition:all .15s}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--navy);background:var(--gray)}
+.drop-zone .icon{font-size:36px;margin-bottom:10px}
+.drop-zone p{margin:0;color:var(--muted);font-size:13px}
+.drop-zone strong{color:var(--navy)}
+.hidden{display:none}
+.progress{margin-top:1rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;background:var(--navy);border-radius:4px;transition:width .3s;width:0%}
+.progress-text{font-size:12px;color:var(--muted);margin-top:4px}
+.log{background:#1a1a1a;border-radius:8px;padding:1rem;font-family:monospace;font-size:12px;color:#4ade80;max-height:300px;overflow-y:auto;margin-top:1rem}
+.log .error{color:#f87171}
+.log .info{color:#60a5fa}
+.btn-primary{background:var(--navy);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;margin-top:1rem}
+.btn-primary:disabled{background:#9ca3af;cursor:not-allowed}
+.success-banner{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:1rem;color:#166534;font-size:13px;margin-top:1rem;display:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="back-btn">← Inicio</a>
+  <div class="topbar-title">Importar Excel a Firebase</div>
+</div>
+
+<div class="content">
+  <div class="card">
+    <h2>📥 Importar Capacity_BT_2026.xlsx</h2>
+    <p>Esta herramienta lee el Excel actual y sube todos los datos (Roster y calendarios mensuales) a Firebase. Solo es necesario hacerlo una vez — después todo se gestiona desde la app web.</p>
+
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="icon">📂</div>
+      <p><strong>Haz clic o arrastra</strong> el archivo Capacity_BT_2026.xlsx aquí</p>
+      <input type="file" id="file-input" accept=".xlsx" class="hidden" onchange="handleFile(this.files[0])">
+    </div>
+
+    <div class="progress hidden" id="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text">Iniciando...</div>
+    </div>
+
+    <div class="log hidden" id="log"></div>
+    <div class="success-banner" id="success-banner">
+      ✅ Importación completada. Todos los datos están en Firebase.
+      <a href="index.html" style="color:#166534;font-weight:500;margin-left:8px">Ir al inicio →</a>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { auth, db, onAuthStateChanged, doc, setDoc, writeBatch, collection }
+  from './firebase-config.js';
+
+onAuthStateChanged(auth, user => { if(!user) window.location = 'index.html'; });
+
+const MONTHS    = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const TAB_ICONS = ["❄️","🌧️","🌱","🌸","🌞","☀️","🏖️","🌻","🍂","🎃","🍂","🎄"];
+const MN        = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+const ABSENCE_CODES = new Set(['H','L','S','T','propd','M','HPY','LD']);
+const YEAR = 2026;
+
+const logEl = document.getElementById('log');
+function log(msg, type='ok') {
+  const line = document.createElement('div');
+  line.className = type; line.textContent = msg;
+  logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight;
+  logEl.classList.remove('hidden');
+}
+function setProgress(pct, text) {
+  document.getElementById('progress-wrap').classList.remove('hidden');
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = text;
+}
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+
+window.handleFile = async (file) => {
+  if(!file) return;
+  log(`📂 Leyendo ${file.name}...`, 'info');
+  setProgress(5, 'Leyendo archivo...');
+
+  const buffer = await file.arrayBuffer();
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+
+  // 1. Roster
+  setProgress(10, 'Procesando Roster...');
+  const wsRoster = wb.Sheets['👤 Team Roster'];
+  if(!wsRoster) { log('❌ No se encontró la pestaña Team Roster', 'error'); return; }
+  const rosterRaw = XLSX.utils.sheet_to_json(wsRoster, { header: 1, defval: null });
+
+  const roster = {};
+  const batch1 = writeBatch(db);
+  let rosterCount = 0;
+
+  for(let i = 9; i < rosterRaw.length; i++) {
+    const row = rosterRaw[i];
+    const name = row[2], mode = row[6];
+    if(!name || !mode || typeof name !== 'string') continue;
+    const id = name.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    const hrs = [];
+    for(let m = 0; m < 12; m++) hrs.push(parseInt(row[11+m]) || (mode==='Onsite'?8:9));
+    const startRaw = row[8], endRaw = row[9];
+    const start = startRaw ? new Date(startRaw).toISOString().split('T')[0] : '2026-01-01';
+    const end   = endRaw   ? new Date(endRaw).toISOString().split('T')[0]   : null;
+    const data  = { name: name.trim(), username: row[3]||'', email: row[4]||'',
+                    team: (row[5]||'BT').trim(), mode, city: row[7]||'',
+                    start, end, flex: !!(row[10]), hrs };
+    roster[name.trim()] = data;
+    batch1.set(doc(db, 'roster', id), data);
+    rosterCount++;
+  }
+  await batch1.commit();
+  log(`✅ Roster: ${rosterCount} personas importadas`);
+  setProgress(20, 'Roster completado...');
+
+  // 2. Flex workers
+  const wfSheet = wb.Sheets['⏰ Flexible Working'];
+  const flexPeople = new Set();
+  if(wfSheet) {
+    const wfRaw = XLSX.utils.sheet_to_json(wfSheet, { header: 1, defval: null });
+    for(let i = 7; i < wfRaw.length; i++) {
+      const name = wfRaw[i][2];
+      if(name && typeof name === 'string') flexPeople.add(name.trim());
+    }
+  }
+  log(`✅ Flex workers: ${flexPeople.size} personas`);
+
+  // 3. Calendarios
+  for(let mi = 0; mi < 12; mi++) {
+    const sname = `${TAB_ICONS[mi]} ${MONTHS[mi]}`;
+    const ws = wb.Sheets[sname];
+    const pct = 20 + Math.round((mi / 12) * 75);
+    setProgress(pct, `Procesando ${MONTHS[mi]}...`);
+
+    if(!ws) { log(`⚠️ No encontrada: ${sname}`, 'error'); continue; }
+
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+    const n_days = DAYS_IN_MONTH[mi];
+    const month_num = mi + 1;
+    const fw = new Date(YEAR, mi, 1).getDay();
+    const fwMon = (fw + 6) % 7;
+
+    const dayToCol = {};
+    const headerRow = raw[6] || [];
+    for(let c = 0; c < headerRow.length; c++) {
+      const v = headerRow[c];
+      if(typeof v === 'number' && v >= 1 && v <= 31) dayToCol[v] = c;
+    }
+
+    const batch = writeBatch(db);
+    let count = 0;
+
+    for(let r = 8; r < raw.length; r++) {
+      const row = raw[r];
+      const bVal = row[1];
+      if(!bVal || typeof bVal !== 'string') continue;
+      if(['ONSITE','OFFSHORE','TOTAL','🏢','🌏'].some(x => bVal.includes(x))) continue;
+
+      const name     = bVal.trim();
+      const teamCell = (row[4] || 'BT').toString().trim();
+      const rp       = roster[name];
+      const hd       = rp ? rp.hrs[mi] : 8;
+      const days     = {};
+
+      for(let d = 1; d <= n_days; d++) {
+        const col = dayToCol[d];
+        if(col === undefined) continue;
+        const wd = (fwMon + d - 1) % 7;
+        if(wd >= 5) continue;
+        const v = row[col];
+        // Leer nota propd
+        const colLetter = XLSX.utils.encode_col(col);
+        const cellAddr  = `${colLetter}${r + 1}`;
+        const wsCell    = ws[cellAddr];
+        const hasPropdNote = wsCell && wsCell.c &&
+          wsCell.c.some(c => c.t && c.t.toLowerCase().includes('propd'));
+
+        if(typeof v === 'string' && ABSENCE_CODES.has(v)) {
+          days[String(d)] = v;
+        } else if(typeof v === 'number' && v > 0) {
+          days[String(d)] = hasPropdNote ? 'propd' : v;
+        }
+      }
+
+      const id = name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+      batch.set(doc(db, 'calendar', `${MN[mi]}-${id}`), {
+        name, team: teamCell, month: MN[mi], monthIndex: mi, days
+      });
+      count++;
+    }
+
+    await batch.commit();
+    log(`✅ ${MONTHS[mi]}: ${count} personas`);
+  }
+
+  setProgress(100, '¡Importación completada!');
+  document.getElementById('success-banner').style.display = 'block';
+  log('🎉 Todos los datos están en Firebase. La app está lista.');
+};
+</script>
+</body>
+</html>

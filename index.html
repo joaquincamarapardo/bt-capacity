@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Inicio</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray);min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-wrap{display:flex;flex-direction:column;align-items:center;gap:20px;padding:2rem}
+.login-card{background:#fff;border-radius:16px;padding:2.5rem 3rem;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center;max-width:440px;width:100%}
+.logo{background:var(--navy);color:#fff;width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 1.5rem}
+h1{font-size:22px;font-weight:600;color:var(--navy);margin-bottom:.5rem}
+.subtitle{font-size:14px;color:var(--muted);margin-bottom:2rem;line-height:1.6}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-google:hover{background:#f9fafb;border-color:#9CA3AF}
+.btn-google img{width:20px;height:20px}
+.divider{display:flex;align-items:center;gap:10px;margin:1.25rem 0;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.btn-email{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer}
+.btn-email:hover{background:#1a2f6e}
+.footer-note{font-size:12px;color:var(--muted);text-align:center}
+
+/* App logged in */
+#app-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:24px;padding:2rem}
+.app-header{text-align:center}
+.app-header h2{font-size:20px;font-weight:600;color:var(--navy)}
+.app-header p{font-size:13px;color:var(--muted);margin-top:4px}
+.user-bar{display:flex;align-items:center;gap:10px;background:#fff;padding:10px 16px;border-radius:12px;border:1px solid var(--border);font-size:13px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0}
+.user-name{font-weight:500;color:var(--text)}
+.user-email{color:var(--muted);font-size:12px}
+.btn-logout{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+.btn-logout:hover{background:var(--gray)}
+.app-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:800px;width:100%}
+.app-card{background:#fff;border-radius:14px;padding:1.5rem;border:1px solid var(--border);text-decoration:none;color:var(--text);transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.app-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-2px);border-color:#9CA3AF}
+.app-card .icon{font-size:32px}
+.app-card .title{font-size:15px;font-weight:600;color:var(--navy)}
+.app-card .desc{font-size:12px;color:var(--muted);line-height:1.5}
+.app-card.primary{border-color:var(--navy);background:linear-gradient(135deg,#0D1B4B,#1a3070);color:#fff}
+.app-card.primary .title{color:#fff}
+.app-card.primary .desc{color:#90CAF9}
+@media(max-width:600px){.app-grid{grid-template-columns:1fr}.login-card{padding:2rem 1.5rem}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-card">
+    <div class="logo">📊</div>
+    <h1>BT Team Capacity</h1>
+    <p class="subtitle">Gestión de capacidad del equipo BT · DXC Technology 2026</p>
+    <button class="btn-google" onclick="loginGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+      Acceder con Google
+    </button>
+    <div class="divider">o</div>
+    <button class="btn-email" onclick="window.location='login-email.html'">Acceder con email y contraseña</button>
+  </div>
+  <div class="footer-note">Solo usuarios autorizados · Datos almacenados en Google Firebase</div>
+</div>
+
+<!-- APP HUB -->
+<div id="app-screen">
+  <div class="app-header">
+    <h2>BT Team Capacity 2026</h2>
+    <p>Selecciona una herramienta</p>
+  </div>
+  <div class="user-bar">
+    <div class="user-avatar" id="user-avatar"></div>
+    <div>
+      <div class="user-name" id="user-name"></div>
+      <div class="user-email" id="user-email"></div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Salir</button>
+  </div>
+  <div class="app-grid">
+    <a href="planner.html" class="app-card primary">
+      <div class="icon">📅</div>
+      <div class="title">Capacity Planner</div>
+      <div class="desc">Calendarios mensuales · Disponibilidad diaria · Ausencias</div>
+    </a>
+    <a href="dashboard.html" class="app-card">
+      <div class="icon">📊</div>
+      <div class="title">Dashboard</div>
+      <div class="desc">Reportes · Gráficos · Métricas de capacidad</div>
+    </a>
+    <a href="admin.html" class="app-card">
+      <div class="icon">👥</div>
+      <div class="title">Gestión de equipo</div>
+      <div class="desc">Altas · Bajas · Team Roster</div>
+    </a>
+  </div>
+</div>
+
+<script type="module">
+import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from './firebase-config.js';
+
+window.loginGoogle = async () => {
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch(e) {
+    alert('Error al iniciar sesión: ' + e.message);
+  }
+};
+
+window.doLogout = async () => {
+  await signOut(auth);
+};
+
+onAuthStateChanged(auth, user => {
+  if(user) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display  = 'flex';
+    document.getElementById('user-name').textContent  = user.displayName || user.email;
+    document.getElementById('user-email').textContent = user.email;
+    document.getElementById('user-avatar').textContent =
+      (user.displayName || user.email)[0].toUpperCase();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display   = 'none';
+  }
+});
+</script>
+</body>
+</html>

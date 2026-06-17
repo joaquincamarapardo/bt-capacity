@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Planner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280;--pale:#E8F0FB}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray);min-height:100vh}
+.topbar{background:var(--navy);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.back-btn{color:#90CAF9;text-decoration:none;font-size:13px}
+.topbar-title{font-size:15px;font-weight:500;color:#fff}
+.topbar-sub{font-size:11px;color:#90CAF9}
+.save-indicator{font-size:12px;color:#90CAF9;display:flex;align-items:center;gap:6px}
+.save-indicator.saved{color:#4ade80}
+.save-indicator.saving{color:#fbbf24}
+
+.month-nav{background:#fff;border-bottom:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;gap:12px;overflow-x:auto}
+.month-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--muted)}
+.month-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:500}
+
+.content{padding:1rem 1.5rem;max-width:100%;overflow-x:auto}
+
+/* Leyenda */
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;padding:3px 8px;border-radius:12px;border:1px solid var(--border);background:#fff}
+.legend-item:hover{border-color:var(--navy)}
+.legend-dot{width:12px;height:12px;border-radius:2px}
+
+/* Tabla calendario */
+.cal-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:#fff}
+table{border-collapse:collapse;min-width:100%}
+th{background:var(--navy);color:#fff;padding:6px 4px;text-align:center;font-size:11px;font-weight:500;white-space:nowrap;min-width:34px}
+th.name-col{text-align:left;min-width:150px;padding:6px 10px}
+th.mode-col,th.total-col{min-width:70px}
+th.we{background:#4A148C}
+
+td{padding:0;border:1px solid #f0f0f0;vertical-align:middle}
+td.name-cell{padding:5px 10px;font-size:12px;font-weight:500;background:#fff;position:sticky;left:0;z-index:2;min-width:150px;white-space:nowrap}
+td.mode-cell{padding:4px 6px;font-size:11px;text-align:center;background:#fff}
+td.total-cell{padding:4px 6px;font-size:11px;text-align:center;font-weight:600;color:var(--navy);background:var(--pale)}
+td.we-cell{background:#BDBDBD;text-align:center;font-size:10px;color:#888}
+td.inactive-cell{background:#E0E0E0}
+
+/* Celda editable */
+.day-input{width:34px;height:28px;border:none;background:transparent;text-align:center;font-size:11px;font-weight:500;cursor:pointer;color:var(--text)}
+.day-input:focus{outline:2px solid var(--navy);background:#fff;border-radius:3px}
+
+/* Separadores */
+tr.section-row td{background:var(--navy);color:#fff;font-size:11px;font-weight:500;padding:5px 10px}
+tr.section-row td:first-child{position:sticky;left:0;z-index:2}
+tr.total-row td{background:#001233;color:#fff;font-size:11px;font-weight:600;padding:5px 4px;text-align:center}
+tr.total-row td.name-cell{background:#001233;text-align:left}
+
+.badge-on{background:#DBEAFE;color:#1E40AF;padding:2px 6px;border-radius:8px;font-size:10px}
+.badge-off{background:#FEF3C7;color:#92400E;padding:2px 6px;border-radius:8px;font-size:10px}
+
+/* Color codes */
+.code-H{background:#FFD700!important}
+.code-L{background:#90CAF9!important}
+.code-S{background:#FFCDD2!important}
+.code-T{background:#B2EBF2!important}
+.code-M{background:#FCE4EC!important}
+.code-propd{background:#FFF9C4!important}
+.code-LD{background:#E8F5E9!important}
+.code-HPY{background:#B3E5FC!important}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="back-btn">← Inicio</a>
+    <div>
+      <div class="topbar-title">Capacity Planner 2026</div>
+      <div class="topbar-sub" id="topbar-sub">Cargando...</div>
+    </div>
+  </div>
+  <div class="save-indicator" id="save-indicator">✓ Guardado</div>
+</div>
+
+<div class="month-nav" id="month-nav"></div>
+
+<div class="content">
+  <div class="legend">
+    <div class="legend-item" onclick="insertCode('H')"><div class="legend-dot" style="background:#FFD700"></div>H — Festivo</div>
+    <div class="legend-item" onclick="insertCode('L')"><div class="legend-dot" style="background:#90CAF9"></div>L — Vacaciones</div>
+    <div class="legend-item" onclick="insertCode('S')"><div class="legend-dot" style="background:#FFCDD2"></div>S — Baja</div>
+    <div class="legend-item" onclick="insertCode('T')"><div class="legend-dot" style="background:#B2EBF2"></div>T — Formación</div>
+    <div class="legend-item" onclick="insertCode('M')"><div class="legend-dot" style="background:#FCE4EC"></div>M — Maternidad</div>
+    <div class="legend-item" onclick="insertCode('propd')"><div class="legend-dot" style="background:#FFF9C4"></div>propd — Flex</div>
+    <div class="legend-item" onclick="insertCode('LD')"><div class="legend-dot" style="background:#E8F5E9"></div>LD — Libre disp.</div>
+    <div class="legend-item" onclick="insertCode('HPY')"><div class="legend-dot" style="background:#B3E5FC"></div>HPY — Vac. ant.</div>
+  </div>
+  <div id="cal-container"></div>
+</div>
+
+<script type="module">
+import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, collection, getDocs, onSnapshot }
+  from './firebase-config.js';
+
+const MN   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MNL  = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const YEAR = 2026;
+const CODES = ['H','L','S','T','M','propd','LD','HPY'];
+const CODE_COLORS = {H:'code-H',L:'code-L',S:'code-S',T:'code-T',M:'code-M',propd:'code-propd',LD:'code-LD',HPY:'code-HPY'};
+const DAY_NAMES = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
+
+let curMonth = new Date().getMonth();
+let roster   = [];
+let calData  = {}; // {personId: {days: {d: val}}}
+let saveTimer = null;
+let focusedInput = null;
+
+onAuthStateChanged(auth, user => {
+  if(!user) { window.location = 'index.html'; return; }
+  init();
+});
+
+async function init() {
+  await loadRoster();
+  buildMonthNav();
+  await loadMonth(curMonth);
+}
+
+async function loadRoster() {
+  const snap = await getDocs(collection(db, 'roster'));
+  roster = [];
+  snap.forEach(d => roster.push({ id: d.id, ...d.data() }));
+  roster.sort((a,b) => {
+    if(a.mode !== b.mode) return a.mode === 'Onsite' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function buildMonthNav() {
+  const nav = document.getElementById('month-nav');
+  nav.innerHTML = MNL.map((m,i) =>
+    `<button class="month-btn${i===curMonth?' active':''}" onclick="switchMonth(${i})">${m}</button>`
+  ).join('');
+}
+
+window.switchMonth = async (mi) => {
+  curMonth = mi;
+  document.querySelectorAll('.month-btn').forEach((b,i) => b.classList.toggle('active', i===mi));
+  await loadMonth(mi);
+};
+
+async function loadMonth(mi) {
+  const mk = MN[mi];
+  document.getElementById('topbar-sub').textContent = `${MNL[mi]} 2026`;
+  document.getElementById('cal-container').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">Cargando...</div>';
+
+  calData = {};
+  const snap = await getDocs(collection(db, 'calendar'));
+  snap.forEach(d => {
+    const data = d.data();
+    if(data.month === mk) calData[d.id] = data;
+  });
+
+  renderCalendar(mi);
+}
+
+function renderCalendar(mi) {
+  const mk     = MN[mi];
+  const nDays  = DAYS[mi];
+  const mnDate = new Date(YEAR, mi, 1);
+  const fw     = (mnDate.getDay() + 6) % 7; // lunes=0
+
+  // Filtrar personas activas en este mes
+  const msDate = new Date(YEAR, mi, 1);
+  const meDate = new Date(YEAR, mi, nDays);
+  const active = roster.filter(p => {
+    const start = new Date(p.start);
+    const end   = p.end ? new Date(p.end) : null;
+    return start <= meDate && (!end || end >= msDate);
+  });
+
+  const onsite  = active.filter(p => p.mode === 'Onsite');
+  const offshore= active.filter(p => p.mode === 'Offshore');
+
+  // Headers
+  let headers = '<th class="name-col">Nombre</th><th class="mode-col">Modo</th><th class="total-col">TOTAL</th>';
+  for(let d = 1; d <= nDays; d++) {
+    const wd = (fw + d - 1) % 7;
+    headers += `<th class="${wd >= 5 ? 'we' : ''}">${d}<br><span style="font-size:9px;opacity:.7">${DAY_NAMES[wd]}</span></th>`;
+  }
+
+  let html = `<div class="cal-wrap"><table><thead><tr>${headers}</tr></thead><tbody>`;
+
+  function renderSection(people, label, color) {
+    if(!people.length) return '';
+    let rows = `<tr class="section-row"><td colspan="${nDays + 3}" style="background:${color}">${label} (${people.length})</td></tr>`;
+    people.forEach((p, idx) => {
+      const pid  = p.id;
+      const pData= calData[`${mk}-${pid}`] || { days: {} };
+      const pStart = new Date(p.start);
+      const pEnd   = p.end ? new Date(p.end) : null;
+      const hd     = p.hrs ? p.hrs[mi] : 8;
+      const bg     = idx % 2 === 0 ? '#fff' : '#fafafa';
+
+      let total = 0;
+      let cells = `<td class="name-cell" style="background:${bg}">${p.name}</td>`;
+      cells    += `<td class="mode-cell" style="background:${bg}"><span class="${p.mode==='Onsite'?'badge-on':'badge-off'}">${p.mode}</span></td>`;
+      cells    += `<td class="total-cell" id="total-${pid}">—</td>`;
+
+      for(let d = 1; d <= nDays; d++) {
+        const wd      = (fw + d - 1) % 7;
+        const dayDate = new Date(YEAR, mi, d);
+        const inactive= dayDate < pStart || (pEnd && dayDate > pEnd);
+        const val     = pData.days ? pData.days[String(d)] : undefined;
+
+        if(wd >= 5) {
+          cells += `<td class="we-cell">—</td>`;
+        } else if(inactive) {
+          cells += `<td class="inactive-cell"></td>`;
+        } else {
+          const displayVal = val !== undefined ? val : hd;
+          const codeClass  = typeof displayVal === 'string' && CODE_COLORS[displayVal] ? CODE_COLORS[displayVal] : '';
+          if(typeof displayVal === 'number') total += displayVal;
+          cells += `<td class="${codeClass}" style="background-color:${!codeClass?bg:''}">
+            <input class="day-input" type="text" value="${displayVal}"
+              data-pid="${pid}" data-day="${d}" data-hd="${hd}"
+              onfocus="onFocus(this)" onblur="onBlur(this)" onkeydown="onKey(event,this)"
+              style="color:${codeClass?'#333':'var(--text)'}">
+          </td>`;
+        }
+      }
+      // Actualizar total
+      setTimeout(() => {
+        const totalEl = document.getElementById(`total-${pid}`);
+        if(totalEl) {
+          let t = 0;
+          for(let d = 1; d <= nDays; d++) {
+            const v = pData.days?.[String(d)];
+            if(typeof v === 'number') t += v;
+            else if(v === undefined) {
+              const wd = (fw+d-1)%7; const dd = new Date(YEAR,mi,d);
+              const inactive = dd < pStart || (pEnd && dd > pEnd);
+              if(wd < 5 && !inactive) t += hd;
+            }
+          }
+          totalEl.textContent = t;
+        }
+      }, 10);
+
+      rows += `<tr style="background:${bg}">${cells}</tr>`;
+    });
+
+    // Fila total sección
+    let totalRow = `<tr class="total-row"><td class="name-cell">TOTAL ${label.split(' ')[0]}</td><td></td><td></td>`;
+    for(let d = 1; d <= nDays; d++) {
+      const wd = (fw + d - 1) % 7;
+      if(wd >= 5) { totalRow += '<td style="background:#4A148C"></td>'; continue; }
+      let sum = 0;
+      people.forEach(p => {
+        const pid   = p.id;
+        const pData = calData[`${mk}-${pid}`] || { days: {} };
+        const pStart= new Date(p.start);
+        const pEnd  = p.end ? new Date(p.end) : null;
+        const hd    = p.hrs ? p.hrs[mi] : 8;
+        const dd    = new Date(YEAR, mi, d);
+        const inactive = dd < pStart || (pEnd && dd > pEnd);
+        if(inactive) return;
+        const v = pData.days?.[String(d)];
+        if(typeof v === 'number') sum += v;
+        else if(v === undefined) sum += hd;
+      });
+      totalRow += `<td id="section-total-${color.replace('#','')}-${d}">${sum||0}</td>`;
+    }
+    totalRow += '</tr>';
+    return rows + totalRow;
+  }
+
+  html += renderSection(onsite,   '🏢  ONSITE',   '#001233');
+  html += '<tr><td colspan="100" style="height:8px;background:var(--gray)"></td></tr>';
+  html += renderSection(offshore, '🌏  OFFSHORE',  '#F26522');
+  html += '</tbody></table></div>';
+  document.getElementById('cal-container').innerHTML = html;
+}
+
+// ── Edición de celdas ──────────────────────────────────────────────────────
+window.onFocus = (input) => { focusedInput = input; input.select(); };
+
+window.onBlur = (input) => {
+  const val = input.value.trim().toUpperCase();
+  if(CODES.includes(val)) {
+    input.value = val.toLowerCase();
+    input.parentElement.className = CODE_COLORS[val.toLowerCase()] || '';
+  } else if(!isNaN(val) && val !== '') {
+    input.value = parseInt(val);
+    input.parentElement.className = '';
+  } else if(val === '') {
+    input.value = '';
+  }
+  saveCell(input);
+};
+
+window.onKey = (e, input) => {
+  if(e.key === 'Enter' || e.key === 'Tab') { input.blur(); }
+  if(e.key === 'Escape') { input.blur(); }
+};
+
+window.insertCode = (code) => {
+  if(focusedInput) {
+    focusedInput.value = code;
+    focusedInput.blur();
+  }
+};
+
+async function saveCell(input) {
+  const pid = input.dataset.pid;
+  const day = input.dataset.day;
+  const hd  = parseInt(input.dataset.hd);
+  const mk  = MN[curMonth];
+  const val = input.value.trim();
+
+  const docId   = `${mk}-${pid}`;
+  const docRef  = doc(db, 'calendar', docId);
+  const existing= calData[docId] || { days: {} };
+  const days    = { ...(existing.days || {}) };
+
+  const parsed = CODES.includes(val.toLowerCase()) ? val.toLowerCase() :
+                 (!isNaN(val) && val !== '') ? parseInt(val) : null;
+
+  if(parsed !== null) days[day] = parsed;
+  else delete days[day];
+
+  // Actualizar total
+  updateTotals(pid, days, hd);
+
+  setSaveState('saving');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await setDoc(docRef, { ...existing, days }, { merge: true });
+      calData[docId] = { ...existing, days };
+      setSaveState('saved');
+    } catch(e) {
+      setSaveState('error');
+    }
+  }, 800);
+}
+
+function updateTotals(pid, days, hd) {
+  const mk    = MN[curMonth];
+  const nDays = DAYS[curMonth];
+  const fw    = (new Date(YEAR, curMonth, 1).getDay() + 6) % 7;
+  const p     = roster.find(x => x.id === pid);
+  if(!p) return;
+  const pStart= new Date(p.start);
+  const pEnd  = p.end ? new Date(p.end) : null;
+  let total = 0;
+  for(let d = 1; d <= nDays; d++) {
+    const wd = (fw + d - 1) % 7;
+    if(wd >= 5) continue;
+    const dd = new Date(YEAR, curMonth, d);
+    if(dd < pStart || (pEnd && dd > pEnd)) continue;
+    const v = days[String(d)];
+    if(typeof v === 'number') total += v;
+    else if(v === undefined) total += hd;
+  }
+  const el = document.getElementById(`total-${pid}`);
+  if(el) el.textContent = total;
+}
+
+function setSaveState(state) {
+  const el = document.getElementById('save-indicator');
+  el.className = `save-indicator ${state}`;
+  el.textContent = state === 'saving' ? '⏳ Guardando...' : state === 'error' ? '❌ Error al guardar' : '✓ Guardado';
+}
+</script>
+</body>
+</html>
