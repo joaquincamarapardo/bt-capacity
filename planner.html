@@ -179,18 +179,22 @@ function calcDayHours(v, hd) {
 }
 
 function calcPersonTotal(pid, mi, days) {
-  // Primero intentar leer directamente del DOM (más fiable que Firebase)
+  // Leer directamente del DOM usando data-hasdata para distinguir datos reales de defaults
   const inputs = document.querySelectorAll(`input[data-pid="${pid}"]`);
   if(inputs.length > 0) {
     let total = 0;
     inputs.forEach(input => {
-      const v = input.value.trim();
-      const hd = parseInt(input.dataset.hd) || 8;
-      // Si es número suma, si es código de ausencia suma 0
-      if(v !== '' && !isNaN(v)) {
+      const v       = input.value.trim();
+      const hd      = parseInt(input.dataset.hd) || 8;
+      const hasData = input.dataset.hasdata === '1';
+      if(!hasData) {
+        // Sin dato explícito → sumar horas estándar (día normal)
+        total += hd;
+      } else if(v !== '' && !isNaN(v)) {
+        // Dato numérico explícito → sumar ese valor (puede ser 0)
         total += parseInt(v);
       }
-      // string (H,L,S...) = 0, no suma nada
+      // Código de ausencia (hasData=1, v=string) → sumar 0
     });
     return total;
   }
@@ -267,24 +271,24 @@ function renderCalendar(mi) {
         } else if(inactive) {
           cells += `<td class="inactive-cell"></td>`;
         } else {
-          // Si es objeto EXT mostrar las horas, si es undefined usar hd
           const rawVal    = pData.days ? pData.days[String(d)] : undefined;
+          // Si rawVal es undefined → celda sin dato explícito → mostrar hd como placeholder
+          const hasData   = rawVal !== undefined;
           const displayVal = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
             ? rawVal.hours
-            : (rawVal !== undefined ? rawVal : hd);
+            : (hasData ? rawVal : hd);
           const isExtDay  = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
-            || (typeof displayVal === 'number' && displayVal > hd);
+            || (hasData && typeof displayVal === 'number' && displayVal > hd);
           const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80',F:'#FFAB91'};
-          const isCode  = typeof displayVal === 'string' && BG[displayVal];
-          const isExt   = isExtDay;
-          const cellBg  = isCode ? BG[displayVal] : isExt ? '#FFCC80' : bg;
-          const fontW   = (isCode || isExt) ? '600' : '400';
-          const fontColor = isCode ? '#333' : isExt ? '#7B3800' : 'var(--text)';
-          // total se recalcula en setTimeout — esta variable ya no se usa
-          if(typeof displayVal === 'number') total += displayVal;
+          const isCode    = typeof displayVal === 'string' && BG[displayVal];
+          const isExt     = isExtDay;
+          const cellBg    = isCode ? BG[displayVal] : isExt ? '#FFCC80' : bg;
+          const fontW     = (isCode || isExt) ? '600' : (hasData ? '400' : '300');
+          const fontColor = isCode ? '#333' : isExt ? '#7B3800' : hasData ? 'var(--text)' : '#9CA3AF';
+          // data-hasdata indica si el valor viene de Firebase o es el default
           cells += `<td style="background-color:${cellBg}">
             <input class="day-input" type="text" value="${displayVal}"
-              data-pid="${pid}" data-day="${d}" data-hd="${hd}"
+              data-pid="${pid}" data-day="${d}" data-hd="${hd}" data-hasdata="${hasData ? '1' : '0'}"
               onfocus="onFocus(this)" onblur="onBlur(this)" onkeydown="onKey(event,this)"
               style="font-weight:${fontW};color:${fontColor}">
           </td>`;
@@ -400,8 +404,14 @@ async function saveCell(input) {
                   (numVal !== null && numVal > hdVal) ? { type: 'EXT', hours: numVal } :
                   (numVal !== null) ? numVal : null;
 
-  if(parsed !== null) days[day] = parsed;
-  else delete days[day];
+  if(parsed !== null) {
+    days[day] = parsed;
+    // Marcar celda como con dato explícito
+    input.dataset.hasdata = '1';
+  } else {
+    delete days[day];
+    input.dataset.hasdata = '0';
+  }
 
   // Actualizar total
   updateTotals(pid, days, hd);
