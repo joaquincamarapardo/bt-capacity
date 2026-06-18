@@ -673,9 +673,20 @@ function renderTeamMode(){
       <div class="leg"><span><i style="background:#0D1B4B"></i>Onsite</span><span><i style="background:#F26522"></i>Offshore</span></div>
       <div class="cw" style="height:220px"><canvas id="ch-tm2"></canvas></div>
     </div>
+    <div class="sec">Comparativa entre equipos — evolución mensual</div>
+    <div class="filt">
+      <label>Ver:</label>
+      <select id="ftm-view" onchange="renderTeamModeEvolution()" style="font-size:12px;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:#fff">
+        <option value="ratio">% Offshore sobre total (ratio)</option>
+        <option value="offshore">Horas Offshore absolutas</option>
+        <option value="onsite">Horas Onsite absolutas</option>
+        <option value="total">Horas totales</option>
+      </select>
+    </div>
     <div class="chart-card">
-      <h3 id="ch-tm3-title">Todos los equipos — evolución Onsite mensual</h3>
-      <div class="cw" style="height:260px"><canvas id="ch-tm3"></canvas></div>
+      <h3 id="ch-tm3-title">% horas Offshore sobre total — por equipo y mes</h3>
+      <div class="leg" id="ch-tm3-leg"></div>
+      <div class="cw" style="height:280px"><canvas id="ch-tm3"></canvas></div>
     </div>`;
 
   document.getElementById('p-teammode').innerHTML = html;
@@ -688,18 +699,87 @@ function renderTeamMode(){
     ]},{plugins:{legend:{display:false}},
        scales:{x:{ticks:{autoSkip:false,font:{size:11}}},y:{ticks:{callback:v=>fmt(v)}}}});
 
-    // Evolución todos los equipos onsite
-    mkC('ch-tm3','line',{labels:MNL,datasets:sorted.map((team,i)=>({
-      label:team,
-      data:MN.map(mk=>(d.teamData[team]?.[mk]?.people||[]).filter(p=>p.mode==='Onsite').reduce((s,p)=>s+p.avail,0)),
-      borderColor:d.tColors[team],backgroundColor:d.tColors[team],
-      tension:.3,pointRadius:3,borderWidth:2,fill:false
-    }))},{plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},
-         scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
-
     renderTeamModeMonth();
+    renderTeamModeEvolution();
   }, 50);
 }
+
+window.renderTeamModeEvolution = () => {
+  const d = STATE;
+  const view = document.getElementById('ftm-view')?.value || 'ratio';
+  const titles = {
+    ratio:   '% horas Offshore sobre total — por equipo y mes',
+    offshore:'Horas Offshore disponibles — evolución por equipo',
+    onsite:  'Horas Onsite disponibles — evolución por equipo',
+    total:   'Horas totales disponibles — evolución por equipo'
+  };
+  const titleEl = document.getElementById('ch-tm3-title');
+  if(titleEl) titleEl.textContent = titles[view];
+
+  // Calcular datos por equipo y mes
+  const teamsWithData = d.teams.filter(team =>
+    MN.some(mk => (d.teamData[team]?.[mk]?.avail||0) > 0)
+  ).sort((a,b) => {
+    const aA = MN.reduce((s,mk)=>s+(d.teamData[a]?.[mk]?.avail||0),0);
+    const bA = MN.reduce((s,mk)=>s+(d.teamData[b]?.[mk]?.avail||0),0);
+    return bA-aA;
+  });
+
+  // Actualizar leyenda
+  const legEl = document.getElementById('ch-tm3-leg');
+  if(legEl) legEl.innerHTML = teamsWithData.map(t=>
+    `<span><i style="background:${d.tColors[t]};width:12px;height:3px;border-radius:2px;display:inline-block"></i>${t}</span>`
+  ).join('');
+
+  const datasets = teamsWithData.map(team => {
+    const data = MN.map(mk => {
+      const people = d.teamData[team]?.[mk]?.people || [];
+      const onAvail  = people.filter(p=>p.mode==='Onsite').reduce((s,p)=>s+p.avail,0);
+      const offAvail = people.filter(p=>p.mode==='Offshore').reduce((s,p)=>s+p.avail,0);
+      const total    = onAvail + offAvail;
+      if(view==='ratio')    return total>0 ? Math.round(offAvail/total*100) : null;
+      if(view==='offshore') return offAvail || null;
+      if(view==='onsite')   return onAvail  || null;
+      return total || null;
+    });
+    return {
+      label: team,
+      data,
+      borderColor: d.tColors[team],
+      backgroundColor: d.tColors[team],
+      tension: .35,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      borderWidth: 2.5,
+      fill: false,
+      spanGaps: true
+    };
+  });
+
+  const yOpts = view==='ratio'
+    ? { min:0, max:100, ticks:{ callback: v=>v+'%' } }
+    : { ticks:{ callback: v=>fmt(v) } };
+
+  mkC('ch-tm3','line',{labels:MNL,datasets},{
+    plugins:{
+      legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{size:11} } },
+      tooltip:{
+        callbacks:{
+          label: ctx => {
+            const v = ctx.parsed.y;
+            return v===null ? null :
+              view==='ratio' ? `${ctx.dataset.label}: ${v}% offshore` :
+              `${ctx.dataset.label}: ${v.toLocaleString()} h`;
+          }
+        }
+      }
+    },
+    scales:{
+      x:{ ticks:{ autoSkip:false, font:{size:10} } },
+      y: yOpts
+    }
+  });
+};
 
 window.renderTeamModeMonth = () => {
   const d = STATE;
@@ -714,7 +794,8 @@ window.renderTeamModeMonth = () => {
   mkC('ch-tm2','bar',{labels:MNL,datasets:[
     {label:'Onsite', data:onData,  backgroundColor:'#0D1B4B'},
     {label:'Offshore',data:offData,backgroundColor:'#F26522'}
-  ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
+  ]},{plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11}}}},
+     scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
 };
 
 // ── UI ─────────────────────────────────────────────────────────────────────
