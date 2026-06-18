@@ -166,6 +166,37 @@ async function loadMonth(mi) {
   renderCalendar(mi);
 }
 
+// ── Función centralizada para calcular horas de un día ──────────────────
+function calcDayHours(v, hd) {
+  // v = valor guardado en Firebase para ese día
+  // hd = horas estándar de la persona ese mes
+  // Retorna las horas DISPONIBLES (no ausencia)
+  if(v && typeof v === 'object' && v.type === 'EXT') return v.hours || hd;
+  if(typeof v === 'number') return v;
+  if(typeof v === 'string') return 0; // ausencia (H, L, S, F, COM...)
+  return hd; // undefined = día normal = horas estándar
+}
+
+function calcPersonTotal(pid, mi, days) {
+  // Calcula el total de horas disponibles de una persona en un mes
+  const nDays = DAYS[mi];
+  const fw    = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
+  const p     = roster.find(x => x.id === pid);
+  if(!p) return 0;
+  const hd     = p.hrs ? p.hrs[mi] : 8;
+  const pStart = new Date(p.start);
+  const pEnd   = p.end ? new Date(p.end) : null;
+  let total = 0;
+  for(let d = 1; d <= nDays; d++) {
+    const wd = (fw + d - 1) % 7;
+    if(wd >= 5) continue;
+    const dd = new Date(YEAR, mi, d);
+    if(dd < pStart || (pEnd && dd > pEnd)) continue;
+    total += calcDayHours(days?.[String(d)], hd);
+  }
+  return total;
+}
+
 function renderCalendar(mi) {
   const mk     = MN[mi];
   const nDays  = DAYS[mi];
@@ -243,30 +274,10 @@ function renderCalendar(mi) {
           </td>`;
         }
       }
-      // Actualizar total
+      // Actualizar total usando función centralizada
       setTimeout(() => {
         const totalEl = document.getElementById(`total-${pid}`);
-        if(totalEl) {
-          let t = 0;
-          for(let d = 1; d <= nDays; d++) {
-            const wd = (fw+d-1)%7;
-            if(wd >= 5) continue;
-            const dd = new Date(YEAR, mi, d);
-            const inactive = dd < pStart || (pEnd && dd > pEnd);
-            if(inactive) continue;
-            const v = pData.days?.[String(d)];
-            if(v && typeof v === 'object' && v.type === 'EXT') {
-              t += v.hours || hd; // EXT suma horas extra
-            } else if(typeof v === 'number') {
-              t += v;
-            } else if(typeof v === 'string') {
-              t += 0; // ausencia = 0 horas disponibles
-            } else {
-              t += hd; // undefined = horas estándar
-            }
-          }
-          totalEl.textContent = t;
-        }
+        if(totalEl) totalEl.textContent = calcPersonTotal(pid, mi, pData.days);
       }, 10);
 
       rows += `<tr style="background:${bg}">${cells}</tr>`;
@@ -279,17 +290,13 @@ function renderCalendar(mi) {
       if(wd >= 5) { totalRow += '<td style="background:#4A148C"></td>'; continue; }
       let sum = 0;
       people.forEach(p => {
-        const pid   = p.id;
-        const pData = calData[`${mk}-${pid}`] || { days: {} };
-        const pStart= new Date(p.start);
-        const pEnd  = p.end ? new Date(p.end) : null;
-        const hd    = p.hrs ? p.hrs[mi] : 8;
-        const dd    = new Date(YEAR, mi, d);
-        const inactive = dd < pStart || (pEnd && dd > pEnd);
-        if(inactive) return;
-        const v = pData.days?.[String(d)];
-        if(typeof v === 'number') sum += v;
-        else if(v === undefined) sum += hd;
+        const pData  = calData[`${mk}-${p.id}`] || { days: {} };
+        const pStart = new Date(p.start);
+        const pEnd   = p.end ? new Date(p.end) : null;
+        const hd     = p.hrs ? p.hrs[mi] : 8;
+        const dd     = new Date(YEAR, mi, d);
+        if(dd < pStart || (pEnd && dd > pEnd)) return;
+        sum += calcDayHours(pData.days?.[String(d)], hd);
       });
       totalRow += `<td id="section-total-${color.replace('#','')}-${d}">${sum||0}</td>`;
     }
@@ -397,32 +404,9 @@ async function saveCell(input) {
 }
 
 function updateTotals(pid, days, hd) {
-  const mk    = MN[curMonth];
-  const nDays = DAYS[curMonth];
-  const fw    = (new Date(YEAR, curMonth, 1).getDay() + 6) % 7;
-  const p     = roster.find(x => x.id === pid);
-  if(!p) return;
-  const pStart= new Date(p.start);
-  const pEnd  = p.end ? new Date(p.end) : null;
-  let total = 0;
-  for(let d = 1; d <= nDays; d++) {
-    const wd = (fw + d - 1) % 7;
-    if(wd >= 5) continue;
-    const dd = new Date(YEAR, curMonth, d);
-    if(dd < pStart || (pEnd && dd > pEnd)) continue;
-    const v = days[String(d)];
-    if(v && typeof v === 'object' && v.type === 'EXT') {
-      total += v.hours || hd; // EXT suma sus horas extra
-    } else if(typeof v === 'number') {
-      total += v;
-    } else if(typeof v === 'string') {
-      total += 0; // código de ausencia (H, L, S, F...) = 0 horas disponibles
-    } else if(v === undefined) {
-      total += hd; // día sin datos = horas estándar
-    }
-  }
+  // Usar función centralizada calcPersonTotal
   const el = document.getElementById(`total-${pid}`);
-  if(el) el.textContent = total;
+  if(el) el.textContent = calcPersonTotal(pid, curMonth, days);
 }
 
 function setSaveState(state) {
