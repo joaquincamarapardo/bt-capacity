@@ -431,6 +431,9 @@ async function saveCell(input) {
     input.dataset.hasdata = '0';
   }
 
+  // Actualizar calData en memoria INMEDIATAMENTE antes de guardar en Firebase
+  calData[docId] = { ...existing, days };
+
   // Actualizar total
   updateTotals(pid, days, hd);
 
@@ -439,12 +442,13 @@ async function saveCell(input) {
   saveTimer = setTimeout(async () => {
     try {
       await setDoc(docRef, { ...existing, days }, { merge: true });
-      calData[docId] = { ...existing, days };
       setSaveState('saved');
     } catch(e) {
       setSaveState('error');
+      // Revertir calData si falla
+      calData[docId] = existing;
     }
-  }, 800);
+  }, 400);
 }
 
 function updateTotals(pid, days, hd) {
