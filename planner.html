@@ -85,15 +85,16 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
 
 <div class="content">
   <div class="legend">
-    <div class="legend-item" onclick="insertCode('H')"><div class="legend-dot" style="background:#FFD700"></div>H — Festivo</div>
-    <div class="legend-item" onclick="insertCode('L')"><div class="legend-dot" style="background:#90CAF9"></div>L — Vacaciones</div>
-    <div class="legend-item" onclick="insertCode('S')"><div class="legend-dot" style="background:#FFCDD2"></div>S — Baja</div>
-    <div class="legend-item" onclick="insertCode('T')"><div class="legend-dot" style="background:#B2EBF2"></div>T — Formación</div>
-    <div class="legend-item" onclick="insertCode('M')"><div class="legend-dot" style="background:#FCE4EC"></div>M — Maternidad</div>
-    <div class="legend-item" onclick="insertCode('COM')"><div class="legend-dot" style="background:#A5D6A7"></div>COM — Compensados</div>
+    <div class="legend-item" onclick="insertCode('H')"><div class="legend-dot" style="background:#FFD700"></div>H — Holiday</div>
+    <div class="legend-item" onclick="insertCode('L')"><div class="legend-dot" style="background:#90CAF9"></div>L — License</div>
+    <div class="legend-item" onclick="insertCode('S')"><div class="legend-dot" style="background:#FFCDD2"></div>S — Sickness</div>
+    <div class="legend-item" onclick="insertCode('T')"><div class="legend-dot" style="background:#B2EBF2"></div>T — Training</div>
+    <div class="legend-item" onclick="insertCode('M')"><div class="legend-dot" style="background:#FCE4EC"></div>M — Maternity leave</div>
+    <div class="legend-item" onclick="insertCode('COM')"><div class="legend-dot" style="background:#A5D6A7"></div>COM — Compensated</div>
     <div class="legend-item" onclick="insertCode('LD')"><div class="legend-dot" style="background:#E8F5E9"></div>LD — Libre disp.</div>
-    <div class="legend-item" onclick="insertCode('HPY')"><div class="legend-dot" style="background:#B3E5FC"></div>HPY — Vac. ant.</div>
-    <div class="legend-item" style="border-color:#FFCC80;background:#FFF8F0"><div class="legend-dot" style="background:#FFCC80"></div>EXT — Dedicación extra (escribe horas > estándar)</div>
+    <div class="legend-item" onclick="insertCode('HPY')"><div class="legend-dot" style="background:#B3E5FC"></div>HPY — Holiday prev. year</div>
+    <div class="legend-item" style="border-color:#FFCC80;background:#FFF8F0"><div class="legend-dot" style="background:#FFCC80"></div>EXT — Extra hours (write hours > standard)</div>
+    <div class="legend-item" onclick="insertCode('F')"><div class="legend-dot" style="background:#FFAB91"></div>F — Festivity</div>
   </div>
   <div id="cal-container"></div>
 </div>
@@ -226,7 +227,7 @@ function renderCalendar(mi) {
             : (rawVal !== undefined ? rawVal : hd);
           const isExtDay  = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
             || (typeof displayVal === 'number' && displayVal > hd);
-          const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80'};
+          const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80',F:'#FFAB91'};
           const isCode  = typeof displayVal === 'string' && BG[displayVal];
           const isExt   = isExtDay;
           const cellBg  = isCode ? BG[displayVal] : isExt ? '#FFCC80' : bg;
