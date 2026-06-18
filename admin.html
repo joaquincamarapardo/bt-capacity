@@ -352,9 +352,53 @@ window.confirmarAlta = async () => {
   };
 
   try {
+    // 1. Guardar en roster
     await setDoc(doc(db, 'roster', id), data);
+
+    // 2. Crear documentos de calendario para cada mes activo
+    const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+    const YEAR = 2026;
+    const startDate = new Date(inicio);
+    const endDate   = data.end ? new Date(data.end) : null;
+    const team      = data.team || 'BT';
+
+    const calPromises = [];
+    for(let mi = 0; mi < 12; mi++) {
+      const mk       = MN[mi];
+      const monthStart = new Date(YEAR, mi, 1);
+      const monthEnd   = new Date(YEAR, mi, DAYS_IN_MONTH[mi]);
+
+      // Solo meses en que la persona está activa
+      if(startDate > monthEnd) continue;
+      if(endDate && endDate < monthStart) continue;
+
+      const hd = hrs[mi] || (data.mode==='Offshore' ? 9 : 8);
+      const fw = (new Date(YEAR, mi, 1).getDay() + 6) % 7; // lunes=0
+      const days = {};
+
+      // Generar días laborables con horas estándar
+      for(let d = 1; d <= DAYS_IN_MONTH[mi]; d++) {
+        const wd  = (fw + d - 1) % 7;
+        if(wd >= 5) continue; // fin de semana
+        const dd  = new Date(YEAR, mi, d);
+        if(dd < startDate) continue;
+        if(endDate && dd > endDate) continue;
+        days[String(d)] = hd;
+      }
+
+      const docId = `${mk}-${id}`;
+      calPromises.push(setDoc(doc(db, 'calendar', docId), {
+        name: nombre, team, month: mk, monthIndex: mi, days
+      }));
+    }
+
+    await Promise.all(calPromises);
+
+    document.getElementById('alta-success').textContent =
+      `✅ Alta registrada correctamente. Calendario creado para ${calPromises.length} meses.`;
     document.getElementById('alta-success').style.display = 'block';
-    setTimeout(() => document.getElementById('alta-success').style.display = 'none', 3000);
+    setTimeout(() => document.getElementById('alta-success').style.display = 'none', 4000);
     loadRoster();
   } catch(e) { alert('Error: ' + e.message); }
 };
