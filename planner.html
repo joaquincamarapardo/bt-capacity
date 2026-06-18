@@ -360,11 +360,13 @@ async function saveCell(input) {
   const existing= calData[docId] || { days: {} };
   const days    = { ...(existing.days || {}) };
 
-  const numVal = (!isNaN(val) && val !== '') ? parseInt(val) : null;
-  const hdVal  = parseInt(input.dataset.hd) || 8;
-  const parsed = CODES.includes(val.toLowerCase()) ? val.toLowerCase() :
-                 (numVal !== null && numVal > hdVal) ? { type: 'EXT', hours: numVal } :
-                 (numVal !== null) ? numVal : null;
+  const numVal  = (!isNaN(val) && val !== '') ? parseInt(val) : null;
+  const hdVal   = parseInt(input.dataset.hd) || 8;
+  // Buscar código ignorando mayúsculas
+  const matched = CODES.find(c => c.toUpperCase() === val.toUpperCase());
+  const parsed  = matched ? matched :
+                  (numVal !== null && numVal > hdVal) ? { type: 'EXT', hours: numVal } :
+                  (numVal !== null) ? numVal : null;
 
   if(parsed !== null) days[day] = parsed;
   else delete days[day];
@@ -400,8 +402,15 @@ function updateTotals(pid, days, hd) {
     const dd = new Date(YEAR, curMonth, d);
     if(dd < pStart || (pEnd && dd > pEnd)) continue;
     const v = days[String(d)];
-    if(typeof v === 'number') total += v;
-    else if(v === undefined) total += hd;
+    if(v && typeof v === 'object' && v.type === 'EXT') {
+      total += v.hours || hd; // EXT suma sus horas extra
+    } else if(typeof v === 'number') {
+      total += v;
+    } else if(typeof v === 'string') {
+      total += 0; // código de ausencia (H, L, S, F...) = 0 horas disponibles
+    } else if(v === undefined) {
+      total += hd; // día sin datos = horas estándar
+    }
   }
   const el = document.getElementById(`total-${pid}`);
   if(el) el.textContent = total;
