@@ -202,6 +202,10 @@ window.handleFile = async (file) => {
         } else if(typeof v === 'number' && v >= 0) {
           if(hasCOMNote) {
             days[String(d)] = 'COM';
+          } else if(v === 0) {
+            // Día con 0 explícito (festivo India, etc.) → guardar como string '0'
+            // para distinguirlo de undefined (día sin dato)
+            days[String(d)] = '0';
           } else if(v > hd) {
             // Horas superiores al estándar → día EXT
             days[String(d)] = { type: 'EXT', hours: v };

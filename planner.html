@@ -172,10 +172,11 @@ function calcDayHours(v, hd) {
   // hd = horas estándar de la persona ese mes
   // Retorna las horas DISPONIBLES (no ausencia)
   if(v && typeof v === 'object' && v.type === 'EXT') return v.hours || hd;
-  if(typeof v === 'number') return v;           // 0 explícito = 0h, 8 = 8h
-  if(typeof v === 'string') return 0;           // ausencia (H,L,S,F,COM...) = 0h disponibles
-  if(v === null) return 0;                      // null explícito = 0h
-  return hd;                                    // undefined = día sin dato = horas estándar
+  if(typeof v === 'number') return v;           // número = esas horas
+  if(v === '0') return 0;                       // '0' = festivo/día bloqueado = 0h
+  if(typeof v === 'string') return 0;           // ausencia (H,L,S,F,COM...) = 0h
+  if(v === null) return 0;                      // null = 0h
+  return hd;                                    // undefined = día normal = horas estándar
 }
 
 function calcPersonTotal(pid, mi, days) {
@@ -188,13 +189,16 @@ function calcPersonTotal(pid, mi, days) {
       const hd      = parseInt(input.dataset.hd) || 8;
       const hasData = input.dataset.hasdata === '1';
       if(!hasData) {
-        // Sin dato explícito → sumar horas estándar (día normal)
+        // Sin dato explícito → día normal → sumar horas estándar
         total += hd;
-      } else if(v !== '' && !isNaN(v)) {
-        // Dato numérico explícito → sumar ese valor (puede ser 0)
+      } else if(v === '0' || v === '') {
+        // Cero explícito o vacío → 0h
+        total += 0;
+      } else if(!isNaN(v) && v !== '') {
+        // Número explícito → sumar ese valor
         total += parseInt(v);
       }
-      // Código de ausencia (hasData=1, v=string) → sumar 0
+      // Código ausencia (H,L,S...) → 0h, no suma
     });
     return total;
   }
@@ -274,9 +278,10 @@ function renderCalendar(mi) {
           const rawVal    = pData.days ? pData.days[String(d)] : undefined;
           // Si rawVal es undefined → celda sin dato explícito → mostrar hd como placeholder
           const hasData   = rawVal !== undefined;
+          // Para '0' mostrar vacío visualmente pero mantener data-hasdata='1'
           const displayVal = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
             ? rawVal.hours
-            : (hasData ? rawVal : hd);
+            : (rawVal === '0' ? '' : hasData ? rawVal : hd);
           const isExtDay  = (rawVal && typeof rawVal === 'object' && rawVal.type === 'EXT')
             || (hasData && typeof displayVal === 'number' && displayVal > hd);
           const BG = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80',F:'#FFAB91'};
