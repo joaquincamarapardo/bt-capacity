@@ -208,8 +208,8 @@ function calcPersonTotal(pid, mi, days) {
   const p     = roster.find(x => x.id === pid);
   if(!p) return 0;
   const hd     = p.hrs ? p.hrs[mi] : 8;
-  const pStart = new Date(p.start);
-  const pEnd   = p.end ? new Date(p.end) : null;
+  const pStart = new Date(p.start + 'T00:00:00');
+  const pEnd   = p.end ? new Date(p.end + 'T23:59:59') : null;
   let total = 0;
   for(let d = 1; d <= nDays; d++) {
     const wd = (fw + d - 1) % 7;
@@ -231,7 +231,7 @@ function renderCalendar(mi) {
   const msDate = new Date(YEAR, mi, 1);
   const meDate = new Date(YEAR, mi, nDays);
   const active = roster.filter(p => {
-    const start = new Date(p.start);
+    const start = new Date(p.start + 'T00:00:00');
     const end   = p.end ? new Date(p.end) : null;
     return start <= meDate && (!end || end >= msDate);
   });
@@ -254,8 +254,9 @@ function renderCalendar(mi) {
     people.forEach((p, idx) => {
       const pid  = p.id;
       const pData= calData[`${mk}-${pid}`] || { days: {} };
-      const pStart = new Date(p.start);
-      const pEnd   = p.end ? new Date(p.end) : null;
+      // Normalizar a medianoche local para evitar problemas de timezone
+      const pStart = new Date(p.start + 'T00:00:00');
+      const pEnd   = p.end ? new Date(p.end + 'T23:59:59') : null;
       const hd     = p.hrs ? p.hrs[mi] : 8;
       const bg     = idx % 2 === 0 ? '#fff' : '#fafafa';
 
@@ -316,8 +317,8 @@ function renderCalendar(mi) {
       let sum = 0;
       people.forEach(p => {
         const pData  = calData[`${mk}-${p.id}`] || { days: {} };
-        const pStart = new Date(p.start);
-        const pEnd   = p.end ? new Date(p.end) : null;
+        const pStart = new Date(p.start + 'T00:00:00');
+        const pEnd   = p.end ? new Date(p.end + 'T23:59:59') : null;
         const hd     = p.hrs ? p.hrs[mi] : 8;
         const dd     = new Date(YEAR, mi, d);
         if(dd < pStart || (pEnd && dd > pEnd)) return;
