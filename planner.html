@@ -32,13 +32,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* Tabla calendario */
 .cal-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:#fff}
 table{border-collapse:collapse;min-width:100%}
-th{background:var(--navy);color:#fff;padding:6px 4px;text-align:center;font-size:11px;font-weight:500;white-space:nowrap;min-width:34px}
-th.name-col{text-align:left;min-width:150px;padding:6px 10px}
+th{background:var(--navy);color:#fff;padding:6px 4px;text-align:center;font-size:11px;font-weight:500;white-space:nowrap;min-width:34px;position:sticky;top:96px;z-index:3}
+th.name-col{text-align:left;min-width:150px;padding:6px 10px;position:sticky;left:0;z-index:5}
 th.mode-col,th.total-col{min-width:70px}
 th.we{background:#4A148C}
 
 td{padding:0;border:1px solid #f0f0f0;vertical-align:middle}
-td.name-cell{padding:5px 10px;font-size:12px;font-weight:500;background:#fff;position:sticky;left:0;z-index:2;min-width:150px;white-space:nowrap}
+td.name-cell{padding:5px 10px;font-size:12px;font-weight:500;background:#fff;position:sticky;left:0;z-index:4;min-width:150px;white-space:nowrap}
 td.mode-cell{padding:4px 6px;font-size:11px;text-align:center;background:#fff}
 td.total-cell{padding:4px 6px;font-size:11px;text-align:center;font-weight:600;color:var(--navy);background:var(--pale)}
 td.we-cell{background:#BDBDBD;text-align:center;font-size:10px;color:#888}
