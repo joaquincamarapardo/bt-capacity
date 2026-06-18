@@ -363,47 +363,11 @@ window.confirmarAlta = async () => {
     const endDate   = data.end ? new Date(data.end) : null;
     const team      = data.team || 'BT';
 
-    const calPromises = [];
-    for(let mi = 0; mi < 12; mi++) {
-      const mk       = MN[mi];
-      const monthStart = new Date(YEAR, mi, 1);
-      const monthEnd   = new Date(YEAR, mi, DAYS_IN_MONTH[mi]);
-
-      // Solo meses en que la persona está activa (fechas inclusivas)
-      const sd = new Date(startDate); sd.setHours(0,0,0,0);
-      const ed = endDate ? new Date(endDate) : null; if(ed) ed.setHours(23,59,59,999);
-      if(sd > monthEnd) continue;
-      if(ed && ed < monthStart) continue;
-
-      const hd = hrs[mi] || (data.mode==='Offshore' ? 9 : 8);
-      const fw = (new Date(YEAR, mi, 1).getDay() + 6) % 7; // lunes=0
-      const days = {};
-
-      // Generar días laborables con horas estándar
-      // La fecha de alta y baja son INCLUSIVAS (ambos días cuentan)
-      const startDay = new Date(startDate); startDay.setHours(0,0,0,0);
-      const endDay   = endDate ? new Date(endDate) : null;
-      if(endDay) endDay.setHours(23,59,59,999);
-
-      for(let d = 1; d <= DAYS_IN_MONTH[mi]; d++) {
-        const wd  = (fw + d - 1) % 7;
-        if(wd >= 5) continue; // fin de semana
-        const dd  = new Date(YEAR, mi, d);
-        if(dd < startDay) continue;
-        if(endDay && dd > endDay) continue;
-        days[String(d)] = hd;
-      }
-
-      const docId = `${mk}-${id}`;
-      calPromises.push(setDoc(doc(db, 'calendar', docId), {
-        name: nombre, team, month: mk, monthIndex: mi, days
-      }));
-    }
-
-    await Promise.all(calPromises);
+    // Crear calendario usando función auxiliar (fechas inclusivas)
+    const mesesCreados = await actualizarCalendario(id, nombre, team, data.mode, inicio, data.end||null, hrs);
 
     document.getElementById('alta-success').textContent =
-      `✅ Alta registrada correctamente. Calendario creado para ${calPromises.length} meses.`;
+      `✅ Alta registrada correctamente. Calendario creado para ${mesesCreados} meses.`;
     document.getElementById('alta-success').style.display = 'block';
     setTimeout(() => document.getElementById('alta-success').style.display = 'none', 4000);
     loadRoster();
@@ -478,6 +442,65 @@ window.copyEmails = () => {
   });
 };
 
+// ── Función auxiliar: generar/actualizar calendario ─────────────────────
+async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
+  const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+  const YEAR = 2026;
+  const startDate = new Date(start); startDate.setHours(0,0,0,0);
+  const endDate   = end ? new Date(end) : null;
+  if(endDate) endDate.setHours(23,59,59,999);
+
+  const promises = [];
+  for(let mi = 0; mi < 12; mi++) {
+    const mk         = MN[mi];
+    const monthStart = new Date(YEAR, mi, 1);
+    const monthEnd   = new Date(YEAR, mi, DAYS_IN_MONTH[mi]);
+
+    // Persona activa en este mes
+    if(startDate > monthEnd) continue;
+    if(endDate && endDate < monthStart) continue;
+
+    const hd = hrs[mi] || (mode==='Offshore' ? 9 : 8);
+    const fw = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
+    const days = {};
+
+    for(let d = 1; d <= DAYS_IN_MONTH[mi]; d++) {
+      const wd = (fw + d - 1) % 7;
+      if(wd >= 5) continue;
+      const dd = new Date(YEAR, mi, d);
+      if(dd < startDate) continue;
+      if(endDate && dd > endDate) continue;
+      days[String(d)] = hd;
+    }
+
+    const docId = `${mk}-${id}`;
+    // Leer calendario existente para preservar ediciones manuales
+    const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+      .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
+      .then(snap => snap.exists() ? snap.data() : null);
+
+    if(existing) {
+      // Preservar ediciones manuales — solo añadir días nuevos o quitar días fuera de rango
+      const mergedDays = { ...existing.days };
+      // Quitar días que quedan fuera del nuevo rango
+      Object.keys(mergedDays).forEach(dStr => {
+        const dd = new Date(YEAR, mi, parseInt(dStr));
+        if(dd < startDate || (endDate && dd > endDate)) delete mergedDays[dStr];
+      });
+      // Añadir días nuevos que no existían
+      Object.entries(days).forEach(([dStr, val]) => {
+        if(mergedDays[dStr] === undefined) mergedDays[dStr] = val;
+      });
+      promises.push(setDoc(doc(db, 'calendar', docId), { ...existing, name: nombre, team, days: mergedDays }));
+    } else {
+      promises.push(setDoc(doc(db, 'calendar', docId), { name: nombre, team, month: mk, monthIndex: mi, days }));
+    }
+  }
+  await Promise.all(promises);
+  return promises.length;
+}
+
 // ── Edición ──────────────────────────────────────────────────────────────
 window.openEdit = (id) => {
   const p = window._rosterPeople.find(x => x.id === id);
@@ -522,15 +545,21 @@ window.guardarEdicion = async () => {
     hrs:      hrs
   };
   try {
+    // 1. Actualizar roster
     await setDoc(doc(db, 'roster', id), data, { merge: true });
+
+    // 2. Actualizar calendario (fechas inclusivas, preserva ediciones manuales)
+    const mesesActualizados = await actualizarCalendario(
+      id, nombre, data.team, data.mode, data.start, data.end || null, hrs
+    );
+
     closeModal();
     await loadRoster();
-    // Mostrar confirmación breve
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#166534;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:13px;z-index:9999';
-    msg.textContent = '✅ Cambios guardados correctamente';
+    msg.textContent = `✅ Cambios guardados. Calendario actualizado (${mesesActualizados} meses).`;
     document.body.appendChild(msg);
-    setTimeout(() => msg.remove(), 3000);
+    setTimeout(() => msg.remove(), 4000);
   } catch(e) { alert('Error al guardar: ' + e.message); }
 };
 
