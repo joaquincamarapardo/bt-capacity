@@ -233,6 +233,7 @@ function renderCalendar(mi) {
           const cellBg  = isCode ? BG[displayVal] : isExt ? '#FFCC80' : bg;
           const fontW   = (isCode || isExt) ? '600' : '400';
           const fontColor = isCode ? '#333' : isExt ? '#7B3800' : 'var(--text)';
+          // total se recalcula en setTimeout — esta variable ya no se usa
           if(typeof displayVal === 'number') total += displayVal;
           cells += `<td style="background-color:${cellBg}">
             <input class="day-input" type="text" value="${displayVal}"
@@ -248,12 +249,20 @@ function renderCalendar(mi) {
         if(totalEl) {
           let t = 0;
           for(let d = 1; d <= nDays; d++) {
+            const wd = (fw+d-1)%7;
+            if(wd >= 5) continue;
+            const dd = new Date(YEAR, mi, d);
+            const inactive = dd < pStart || (pEnd && dd > pEnd);
+            if(inactive) continue;
             const v = pData.days?.[String(d)];
-            if(typeof v === 'number') t += v;
-            else if(v === undefined) {
-              const wd = (fw+d-1)%7; const dd = new Date(YEAR,mi,d);
-              const inactive = dd < pStart || (pEnd && dd > pEnd);
-              if(wd < 5 && !inactive) t += hd;
+            if(v && typeof v === 'object' && v.type === 'EXT') {
+              t += v.hours || hd; // EXT suma horas extra
+            } else if(typeof v === 'number') {
+              t += v;
+            } else if(typeof v === 'string') {
+              t += 0; // ausencia = 0 horas disponibles
+            } else {
+              t += hd; // undefined = horas estándar
             }
           }
           totalEl.textContent = t;
