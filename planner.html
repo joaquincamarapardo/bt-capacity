@@ -172,9 +172,10 @@ function calcDayHours(v, hd) {
   // hd = horas estándar de la persona ese mes
   // Retorna las horas DISPONIBLES (no ausencia)
   if(v && typeof v === 'object' && v.type === 'EXT') return v.hours || hd;
-  if(typeof v === 'number') return v;
-  if(typeof v === 'string') return 0; // ausencia (H, L, S, F, COM...)
-  return hd; // undefined = día normal = horas estándar
+  if(typeof v === 'number') return v;           // 0 explícito = 0h, 8 = 8h
+  if(typeof v === 'string') return 0;           // ausencia (H,L,S,F,COM...) = 0h disponibles
+  if(v === null) return 0;                      // null explícito = 0h
+  return hd;                                    // undefined = día sin dato = horas estándar
 }
 
 function calcPersonTotal(pid, mi, days) {

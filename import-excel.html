@@ -199,7 +199,7 @@ window.handleFile = async (file) => {
 
         if(typeof v === 'string' && ABSENCE_CODES.has(v)) {
           days[String(d)] = v;
-        } else if(typeof v === 'number' && v > 0) {
+        } else if(typeof v === 'number' && v >= 0) {
           if(hasCOMNote) {
             days[String(d)] = 'COM';
           } else if(v > hd) {
