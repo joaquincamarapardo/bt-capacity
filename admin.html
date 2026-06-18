@@ -447,9 +447,9 @@ async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
   const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
   const YEAR = 2026;
-  const startDate = new Date(start); startDate.setHours(0,0,0,0);
-  const endDate   = end ? new Date(end) : null;
-  if(endDate) endDate.setHours(23,59,59,999);
+  // Parsear como hora local para evitar problemas de timezone
+  const startDate = new Date(start + 'T00:00:00');
+  const endDate   = end ? new Date(end + 'T23:59:59') : null;
 
   const promises = [];
   for(let mi = 0; mi < 12; mi++) {
@@ -468,7 +468,8 @@ async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
     for(let d = 1; d <= DAYS_IN_MONTH[mi]; d++) {
       const wd = (fw + d - 1) % 7;
       if(wd >= 5) continue;
-      const dd = new Date(YEAR, mi, d);
+      // Normalizar dd a medianoche para comparación correcta
+      const dd = new Date(YEAR, mi, d, 0, 0, 0, 0);
       if(dd < startDate) continue;
       if(endDate && dd > endDate) continue;
       days[String(d)] = hd;
@@ -485,7 +486,7 @@ async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
       const mergedDays = { ...existing.days };
       // Quitar días que quedan fuera del nuevo rango
       Object.keys(mergedDays).forEach(dStr => {
-        const dd = new Date(YEAR, mi, parseInt(dStr));
+        const dd = new Date(YEAR, mi, parseInt(dStr), 0, 0, 0, 0);
         if(dd < startDate || (endDate && dd > endDate)) delete mergedDays[dStr];
       });
       // Añadir días nuevos que no existían
@@ -564,16 +565,23 @@ window.guardarEdicion = async () => {
 };
 
 window.eliminarPersona = async (id, nombre) => {
-  if(!confirm(`⚠️ ¿Eliminar a ${nombre} del roster?
-
-Esta acción no se puede deshacer.`)) return;
+  if(!confirm(`⚠️ ¿Eliminar a ${nombre} del roster?\n\nSe eliminarán también todos sus datos de calendario. Esta acción no se puede deshacer.`)) return;
   try {
-    const { deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const { deleteDoc, getDocs, collection: col, query, where } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+
+    // 1. Borrar del roster
     await deleteDoc(doc(db, 'roster', id));
+
+    // 2. Borrar todos los documentos de calendario de esta persona
+    const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const calDeletes = MN.map(mk => deleteDoc(doc(db, 'calendar', `${mk}-${id}`)));
+    await Promise.allSettled(calDeletes); // allSettled para no fallar si algún mes no existe
+
     await loadRoster();
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#991B1B;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:13px;z-index:9999';
-    msg.textContent = `🗑️ ${nombre} eliminado del roster`;
+    msg.textContent = `🗑️ ${nombre} eliminado del roster y calendarios`;
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 3000);
   } catch(e) { alert('Error al eliminar: ' + e.message); }
