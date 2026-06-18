@@ -21,7 +21,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .month-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--muted)}
 .month-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:500}
 
-.content{padding:1rem 1.5rem;max-width:100%;overflow-x:auto}
+.content{padding:1rem 1.5rem;max-width:100%;overflow-x:auto;height:calc(100vh - 96px);overflow-y:auto}
 
 /* Leyenda */
 .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
@@ -30,9 +30,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .legend-dot{width:12px;height:12px;border-radius:2px}
 
 /* Tabla calendario */
-.cal-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:#fff}
+.cal-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:#fff;overflow-y:visible}
 table{border-collapse:collapse;min-width:100%}
-th{background:var(--navy);color:#fff;padding:6px 4px;text-align:center;font-size:11px;font-weight:500;white-space:nowrap;min-width:34px;position:sticky;top:96px;z-index:3}
+th{background:var(--navy);color:#fff;padding:6px 4px;text-align:center;font-size:11px;font-weight:500;white-space:nowrap;min-width:34px;position:sticky;top:0;z-index:3}
 th.name-col{text-align:left;min-width:150px;padding:6px 10px;position:sticky;left:0;z-index:5}
 th.mode-col,th.total-col{min-width:70px}
 th.we{background:#4A148C}
