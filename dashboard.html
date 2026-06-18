@@ -620,102 +620,82 @@ function renderTeamMode(){
   const d = STATE;
   if(!d.teams.length) return;
 
-  // Para cada equipo calcular horas Onsite y Offshore por mes
   const sorted = [...d.teams].sort((a,b)=>{
     const aA = MN.reduce((s,mk)=>s+(d.teamData[a]?.[mk]?.avail||0),0);
     const bA = MN.reduce((s,mk)=>s+(d.teamData[b]?.[mk]?.avail||0),0);
     return bA-aA;
   });
 
-  // Datos por equipo: onsite vs offshore anuales
+  // Horas disponibles onsite/offshore por equipo (anual)
   const teamStats = sorted.map(team => {
-    let onAvail=0, offAvail=0, onAbs=0, offAbs=0, onPpl=0, offPpl=0;
+    let onAvail=0, offAvail=0;
     MN.forEach(mk => {
-      const td = d.teamData[team]?.[mk];
-      if(!td) return;
-      td.people.forEach(p => {
-        if(p.mode==='Onsite') { onAvail+=p.avail; onAbs+=p.abs; onPpl++; }
-        else { offAvail+=p.avail; offAbs+=p.abs; offPpl++; }
+      (d.teamData[team]?.[mk]?.people||[]).forEach(p => {
+        if(p.mode==='Onsite') onAvail+=p.avail;
+        else offAvail+=p.avail;
       });
     });
-    return { team, onAvail, offAvail, onAbs, offAbs,
-             onPpl: Math.round(onPpl/12), offPpl: Math.round(offPpl/12) };
+    return { team, onAvail, offAvail };
   }).filter(t => t.onAvail>0 || t.offAvail>0);
 
-  // Tabla resumen anual
-  let rows = teamStats.map(t => {
-    const onT=t.onAvail+t.onAbs||1, offT=t.offAvail+t.offAbs||1;
-    return `<tr>
-      <td class="l"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.tColors[t.team]};margin-right:6px;vertical-align:middle"></span>${t.team}</td>
-      <td>${t.onAvail.toLocaleString()}</td><td>${t.onAbs.toLocaleString()}</td><td>${pct(t.onAvail,onT)}%</td><td>${t.onPpl||'—'}</td>
-      <td style="border-left:2px solid var(--border)">${t.offAvail.toLocaleString()}</td><td>${t.offAbs.toLocaleString()}</td><td>${pct(t.offAvail,offT)}%</td><td>${t.offPpl||'—'}</td>
-    </tr>`;
-  }).join('');
+  // Tabla resumen
+  const rows = teamStats.map(t=>`<tr>
+    <td class="l"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.tColors[t.team]};margin-right:6px;vertical-align:middle"></span>${t.team}</td>
+    <td>${t.onAvail.toLocaleString()}</td>
+    <td>${t.offAvail.toLocaleString()}</td>
+    <td>${(t.onAvail+t.offAvail).toLocaleString()}</td>
+    <td>${t.onAvail+t.offAvail>0?Math.round(t.onAvail/(t.onAvail+t.offAvail)*100)+'%':'—'}</td>
+    <td>${t.onAvail+t.offAvail>0?Math.round(t.offAvail/(t.onAvail+t.offAvail)*100)+'%':'—'}</td>
+  </tr>`).join('');
 
   let html = `
     <div class="sec">Horas disponibles Onsite vs Offshore por equipo — 2026</div>
-    <div class="grid2">
-      <div class="chart-card"><h3>Onsite — horas disponibles por equipo</h3>
-        <div class="cw" style="height:220px"><canvas id="ch-tm1"></canvas></div>
-      </div>
-      <div class="chart-card"><h3>Offshore — horas disponibles por equipo</h3>
-        <div class="cw" style="height:220px"><canvas id="ch-tm2"></canvas></div>
-      </div>
-    </div>
     <div class="chart-card">
-      <h3>Comparativa total — Onsite vs Offshore por equipo</h3>
+      <h3>Comparativa anual — Onsite vs Offshore por equipo</h3>
       <div class="leg"><span><i style="background:#0D1B4B"></i>Onsite</span><span><i style="background:#F26522"></i>Offshore</span></div>
-      <div class="cw" style="height:240px"><canvas id="ch-tm3"></canvas></div>
+      <div class="cw" style="height:260px"><canvas id="ch-tm1"></canvas></div>
     </div>
-    <div class="sec">Tabla resumen anual por equipo</div>
+    <div class="sec">Tabla resumen anual</div>
     <div class="tw"><table><thead><tr>
-      <th class="l" rowspan="2">Equipo</th>
-      <th colspan="4" style="border-bottom:1px solid rgba(255,255,255,.3);background:#1a3070">── Onsite ──</th>
-      <th colspan="4" style="border-bottom:1px solid rgba(255,255,255,.3);background:#C94A00">── Offshore ──</th>
-    </tr><tr>
-      <th>H disp.</th><th>H aus.</th><th>% disp.</th><th>Pers.</th>
-      <th style="border-left:2px solid var(--border)">H disp.</th><th>H aus.</th><th>% disp.</th><th>Pers.</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-    </table></div>
-
-    <div class="sec">Evolución mensual por equipo — Onsite</div>
+      <th class="l">Equipo</th>
+      <th>H Onsite</th><th>H Offshore</th><th>Total</th>
+      <th>% Onsite</th><th>% Offshore</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="sec">Evolución mensual Onsite vs Offshore</div>
     <div class="filt">
       <label>Equipo:</label>
       <select id="ftm-eq" onchange="renderTeamModeMonth()" style="font-size:12px;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:#fff">
         ${sorted.map(t=>`<option value="${t}">${t}</option>`).join('')}
       </select>
     </div>
-    <div class="grid2">
-      <div class="chart-card"><h3 id="ch-tm4-title">Onsite — evolución mensual</h3>
-        <div class="cw" style="height:200px"><canvas id="ch-tm4"></canvas></div>
-      </div>
-      <div class="chart-card"><h3 id="ch-tm5-title">Offshore — evolución mensual</h3>
-        <div class="cw" style="height:200px"><canvas id="ch-tm5"></canvas></div>
-      </div>
+    <div class="chart-card">
+      <h3 id="ch-tm2-title">Evolución mensual</h3>
+      <div class="leg"><span><i style="background:#0D1B4B"></i>Onsite</span><span><i style="background:#F26522"></i>Offshore</span></div>
+      <div class="cw" style="height:220px"><canvas id="ch-tm2"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3 id="ch-tm3-title">Todos los equipos — evolución Onsite mensual</h3>
+      <div class="cw" style="height:260px"><canvas id="ch-tm3"></canvas></div>
     </div>`;
 
   document.getElementById('p-teammode').innerHTML = html;
 
   setTimeout(() => {
-    // Gráfico Onsite por equipo
-    mkC('ch-tm1','bar',{labels:teamStats.filter(t=>t.onAvail>0).map(t=>t.team),datasets:[
-      {label:'On disp.',data:teamStats.filter(t=>t.onAvail>0).map(t=>t.onAvail),backgroundColor:teamStats.filter(t=>t.onAvail>0).map(t=>d.tColors[t.team])},
-      {label:'On aus.',data:teamStats.filter(t=>t.onAvail>0).map(t=>t.onAbs),backgroundColor:teamStats.filter(t=>t.onAvail>0).map(t=>d.tColors[t.team]+'66')}
-    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:11}}},y:{ticks:{callback:v=>fmt(v)}}}});
-
-    // Gráfico Offshore por equipo
-    mkC('ch-tm2','bar',{labels:teamStats.filter(t=>t.offAvail>0).map(t=>t.team),datasets:[
-      {label:'Off disp.',data:teamStats.filter(t=>t.offAvail>0).map(t=>t.offAvail),backgroundColor:teamStats.filter(t=>t.offAvail>0).map(t=>d.tColors[t.team])},
-      {label:'Off aus.',data:teamStats.filter(t=>t.offAvail>0).map(t=>t.offAbs),backgroundColor:teamStats.filter(t=>t.offAvail>0).map(t=>d.tColors[t.team]+'66')}
-    ]},{scales:{x:{ticks:{autoSkip:false,font:{size:11}}},y:{ticks:{callback:v=>fmt(v)}}}});
-
-    // Gráfico comparativo agrupado
-    mkC('ch-tm3','bar',{labels:sorted,datasets:[
-      {label:'Onsite',data:sorted.map(t=>teamStats.find(x=>x.team===t)?.onAvail||0),backgroundColor:'#0D1B4B'},
-      {label:'Offshore',data:sorted.map(t=>teamStats.find(x=>x.team===t)?.offAvail||0),backgroundColor:'#F26522'}
-    ]},{plugins:{legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}}},
+    // Comparativa agrupada anual
+    mkC('ch-tm1','bar',{labels:teamStats.map(t=>t.team),datasets:[
+      {label:'Onsite', data:teamStats.map(t=>t.onAvail),  backgroundColor:'#0D1B4B'},
+      {label:'Offshore',data:teamStats.map(t=>t.offAvail),backgroundColor:'#F26522'}
+    ]},{plugins:{legend:{display:false}},
        scales:{x:{ticks:{autoSkip:false,font:{size:11}}},y:{ticks:{callback:v=>fmt(v)}}}});
+
+    // Evolución todos los equipos onsite
+    mkC('ch-tm3','line',{labels:MNL,datasets:sorted.map((team,i)=>({
+      label:team,
+      data:MN.map(mk=>(d.teamData[team]?.[mk]?.people||[]).filter(p=>p.mode==='Onsite').reduce((s,p)=>s+p.avail,0)),
+      borderColor:d.tColors[team],backgroundColor:d.tColors[team],
+      tension:.3,pointRadius:3,borderWidth:2,fill:false
+    }))},{plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},
+         scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
 
     renderTeamModeMonth();
   }, 50);
@@ -728,20 +708,12 @@ window.renderTeamModeMonth = () => {
 
   const onData  = MN.map(mk=>(d.teamData[team]?.[mk]?.people||[]).filter(p=>p.mode==='Onsite').reduce((s,p)=>s+p.avail,0));
   const offData = MN.map(mk=>(d.teamData[team]?.[mk]?.people||[]).filter(p=>p.mode==='Offshore').reduce((s,p)=>s+p.avail,0));
-  const onAbs   = MN.map(mk=>(d.teamData[team]?.[mk]?.people||[]).filter(p=>p.mode==='Onsite').reduce((s,p)=>s+p.abs,0));
-  const offAbs  = MN.map(mk=>(d.teamData[team]?.[mk]?.people||[]).filter(p=>p.mode==='Offshore').reduce((s,p)=>s+p.abs,0));
 
-  document.getElementById('ch-tm4-title').textContent = `${team} — Onsite mensual`;
-  document.getElementById('ch-tm5-title').textContent = `${team} — Offshore mensual`;
+  document.getElementById('ch-tm2-title').textContent = `${team} — Onsite vs Offshore por mes`;
 
-  mkC('ch-tm4','bar',{labels:MNL,datasets:[
-    {label:'Disp.',data:onData,backgroundColor:'#0D1B4B'},
-    {label:'Aus.',data:onAbs,backgroundColor:'#0D1B4B66'}
-  ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
-
-  mkC('ch-tm5','bar',{labels:MNL,datasets:[
-    {label:'Disp.',data:offData,backgroundColor:'#F26522'},
-    {label:'Aus.',data:offAbs,backgroundColor:'#F2652266'}
+  mkC('ch-tm2','bar',{labels:MNL,datasets:[
+    {label:'Onsite', data:onData,  backgroundColor:'#0D1B4B'},
+    {label:'Offshore',data:offData,backgroundColor:'#F26522'}
   ]},{scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>fmt(v)}}}});
 };
 
