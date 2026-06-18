@@ -179,7 +179,22 @@ function calcDayHours(v, hd) {
 }
 
 function calcPersonTotal(pid, mi, days) {
-  // Calcula el total de horas disponibles de una persona en un mes
+  // Primero intentar leer directamente del DOM (más fiable que Firebase)
+  const inputs = document.querySelectorAll(`input[data-pid="${pid}"]`);
+  if(inputs.length > 0) {
+    let total = 0;
+    inputs.forEach(input => {
+      const v = input.value.trim();
+      const hd = parseInt(input.dataset.hd) || 8;
+      // Si es número suma, si es código de ausencia suma 0
+      if(v !== '' && !isNaN(v)) {
+        total += parseInt(v);
+      }
+      // string (H,L,S...) = 0, no suma nada
+    });
+    return total;
+  }
+  // Fallback: calcular desde Firebase days
   const nDays = DAYS[mi];
   const fw    = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
   const p     = roster.find(x => x.id === pid);
@@ -275,11 +290,11 @@ function renderCalendar(mi) {
           </td>`;
         }
       }
-      // Actualizar total usando función centralizada
+      // Actualizar total desde DOM (después de renderizar)
       setTimeout(() => {
         const totalEl = document.getElementById(`total-${pid}`);
         if(totalEl) totalEl.textContent = calcPersonTotal(pid, mi, pData.days);
-      }, 10);
+      }, 100);
 
       rows += `<tr style="background:${bg}">${cells}</tr>`;
     });
