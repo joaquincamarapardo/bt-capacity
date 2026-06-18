@@ -363,8 +363,10 @@ window.onBlur = (input) => {
       input.style.color = 'var(--text)';
     }
   } else if(raw === '') {
+    // Si venía de un día bloqueado ('0'), mantener vacío visual
     applyColor(input.parentElement, null);
     input.style.fontWeight = '400';
+    input.style.color = 'var(--text)';
   }
   saveCell(input);
 };
@@ -405,13 +407,24 @@ async function saveCell(input) {
   const hdVal   = parseInt(input.dataset.hd) || 8;
   // Buscar código ignorando mayúsculas
   const matched = CODES.find(c => c.toUpperCase() === val.toUpperCase());
-  const parsed  = matched ? matched :
-                  (numVal !== null && numVal > hdVal) ? { type: 'EXT', hours: numVal } :
-                  (numVal !== null) ? numVal : null;
 
-  if(parsed !== null) {
+  let parsed;
+  if(matched) {
+    parsed = matched; // código de ausencia
+  } else if(numVal !== null && numVal > hdVal) {
+    parsed = { type: 'EXT', hours: numVal }; // horas extra
+  } else if(numVal !== null) {
+    parsed = numVal; // número normal (incluyendo 0)
+  } else if(val === '') {
+    // Celda vaciada → guardar '0' para mantener el día bloqueado
+    // pero si venía de un '0' implícito restaurar ese estado
+    parsed = input.dataset.hasdata === '1' ? '0' : null;
+  } else {
+    parsed = null;
+  }
+
+  if(parsed !== null && parsed !== undefined) {
     days[day] = parsed;
-    // Marcar celda como con dato explícito
     input.dataset.hasdata = '1';
   } else {
     delete days[day];
