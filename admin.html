@@ -369,21 +369,28 @@ window.confirmarAlta = async () => {
       const monthStart = new Date(YEAR, mi, 1);
       const monthEnd   = new Date(YEAR, mi, DAYS_IN_MONTH[mi]);
 
-      // Solo meses en que la persona está activa
-      if(startDate > monthEnd) continue;
-      if(endDate && endDate < monthStart) continue;
+      // Solo meses en que la persona está activa (fechas inclusivas)
+      const sd = new Date(startDate); sd.setHours(0,0,0,0);
+      const ed = endDate ? new Date(endDate) : null; if(ed) ed.setHours(23,59,59,999);
+      if(sd > monthEnd) continue;
+      if(ed && ed < monthStart) continue;
 
       const hd = hrs[mi] || (data.mode==='Offshore' ? 9 : 8);
       const fw = (new Date(YEAR, mi, 1).getDay() + 6) % 7; // lunes=0
       const days = {};
 
       // Generar días laborables con horas estándar
+      // La fecha de alta y baja son INCLUSIVAS (ambos días cuentan)
+      const startDay = new Date(startDate); startDay.setHours(0,0,0,0);
+      const endDay   = endDate ? new Date(endDate) : null;
+      if(endDay) endDay.setHours(23,59,59,999);
+
       for(let d = 1; d <= DAYS_IN_MONTH[mi]; d++) {
         const wd  = (fw + d - 1) % 7;
         if(wd >= 5) continue; // fin de semana
         const dd  = new Date(YEAR, mi, d);
-        if(dd < startDate) continue;
-        if(endDate && dd > endDate) continue;
+        if(dd < startDay) continue;
+        if(endDay && dd > endDay) continue;
         days[String(d)] = hd;
       }
 
