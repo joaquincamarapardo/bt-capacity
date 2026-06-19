@@ -298,10 +298,10 @@ onAuthStateChanged(auth, user => {
   if(!user) { window.location = 'index.html'; return; }
   const role = sessionStorage.getItem('userRole') || 'user';
   window._isAdmin = role === 'admin';
-  // Mostrar/ocultar pestañas de alta y baja solo para admins
   if(!window._isAdmin) {
+    // Ocultar pestañas de alta, baja y accesos para no-admins
     document.querySelectorAll('.tab').forEach(t => {
-      if(t.textContent.includes('Alta') || t.textContent.includes('Baja')) {
+      if(t.textContent.includes('Alta') || t.textContent.includes('Baja') || t.textContent.includes('Accesos')) {
         t.style.display = 'none';
       }
     });
