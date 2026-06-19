@@ -366,6 +366,19 @@ window.confirmarAlta = async () => {
     // Crear calendario usando función auxiliar (fechas inclusivas)
     const mesesCreados = await actualizarCalendario(id, nombre, team, data.mode, inicio, data.end||null, hrs);
 
+    // Crear usuario en colección users con rol 'user' (si no existe ya)
+    const userId = email.replace(/[@.]/g, '_');
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if(!userSnap.exists()) {
+      await setDoc(userRef, {
+        email: email,
+        name:  nombre,
+        role:  'user',
+        createdAt: new Date().toISOString()
+      });
+    }
+
     document.getElementById('alta-success').textContent =
       `✅ Alta registrada correctamente. Calendario creado para ${mesesCreados} meses.`;
     document.getElementById('alta-success').style.display = 'block';
@@ -576,12 +589,19 @@ window.eliminarPersona = async (id, nombre) => {
     // 2. Borrar todos los documentos de calendario de esta persona
     const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const calDeletes = MN.map(mk => deleteDoc(doc(db, 'calendar', `${mk}-${id}`)));
-    await Promise.allSettled(calDeletes); // allSettled para no fallar si algún mes no existe
+    await Promise.allSettled(calDeletes);
+
+    // 3. Borrar de la colección users
+    const p = window._rosterPeople.find(x => x.id === id);
+    if(p && p.email) {
+      const userId = p.email.replace(/[@.]/g, '_');
+      await deleteDoc(doc(db, 'users', userId)).catch(() => {});
+    }
 
     await loadRoster();
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#991B1B;color:#fff;padding:.75rem 1.25rem;border-radius:10px;font-size:13px;z-index:9999';
-    msg.textContent = `🗑️ ${nombre} eliminado del roster y calendarios`;
+    msg.textContent = `🗑️ ${nombre} eliminado del roster, calendarios y accesos`;
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 3000);
   } catch(e) { alert('Error al eliminar: ' + e.message); }
