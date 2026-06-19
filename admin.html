@@ -203,6 +203,33 @@ tr:hover td{background:#F9FAFB}
       </table>
     </div>
   </div>
+
+  <!-- Accesos -->
+  <div id="tab-accesos" class="panel">
+    <div class="form-card">
+      <div class="section">Crear o restablecer contraseña de usuario</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Usa esta herramienta para crear la contraseña inicial de un usuario nuevo o restablecer la de uno existente.
+        El usuario podrá cambiarla después desde la pantalla de login.
+      </p>
+      <div class="grid2">
+        <div class="field"><label>Email del usuario *</label>
+          <select id="acc-email" style="font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--border)">
+            <option value="">— Seleccionar persona —</option>
+          </select>
+        </div>
+        <div class="field"><label>Contraseña temporal *</label>
+          <input type="text" id="acc-pass" placeholder="Mínimo 6 caracteres" value="BT2026!">
+        </div>
+      </div>
+      <div class="note">ℹ️ Se creará o actualizará la cuenta de Firebase Auth para este usuario. El usuario deberá cambiar su contraseña en el primer acceso desde la opción "Cambiar contraseña".</div>
+      <div class="success-msg" id="acc-success">✅ Cuenta creada/actualizada correctamente.</div>
+      <div class="actions">
+        <button class="btn-primary" onclick="crearCuentaUsuario()">🔑 Crear / Restablecer contraseña</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal edición -->
