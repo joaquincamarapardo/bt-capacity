@@ -137,6 +137,11 @@ onAuthStateChanged(auth, async user => {
     // Guardar rol en sessionStorage para otros módulos
     sessionStorage.setItem('userRole', userData.role || 'user');
     sessionStorage.setItem('userEmail', user.email);
+    // Ocultar dashboard si no es admin
+    if(userData.role !== 'admin') {
+      const dashCard = document.querySelector('a[href="dashboard.html"]');
+      if(dashCard) dashCard.style.display = 'none';
+    }
   } else {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-screen').style.display   = 'none';
