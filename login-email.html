@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BT Capacity — Acceder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.card{background:#fff;border-radius:16px;padding:2.5rem 2.5rem;box-shadow:0 4px 24px rgba(0,0,0,.08);max-width:420px;width:100%}
+.logo{background:var(--navy);color:#fff;width:56px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 1.25rem}
+h1{font-size:20px;font-weight:600;color:var(--navy);text-align:center;margin-bottom:.375rem}
+.subtitle{font-size:13px;color:var(--muted);text-align:center;margin-bottom:1.75rem}
+.tabs{display:flex;background:var(--gray);border-radius:10px;padding:3px;margin-bottom:1.5rem;gap:3px}
+.tab{flex:1;padding:8px;font-size:13px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-radius:8px;font-weight:400;transition:all .15s}
+.tab.active{background:#fff;color:var(--navy);font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.panel{display:none}.panel.active{display:block}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:1rem}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.field input{font-size:13px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text);width:100%}
+.field input:focus{outline:none;border-color:var(--navy)}
+.btn{width:100%;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:.5rem}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:#1a2f6e}
+.btn-primary:disabled{background:#9CA3AF;cursor:not-allowed}
+.btn-secondary{background:var(--gray);color:var(--text);border:1px solid var(--border);margin-top:.5rem}
+.btn-secondary:hover{background:#E5E7EB}
+.msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-top:1rem;display:none}
+.msg-ok{background:#F0FDF4;border:1px solid #BBF7D0;color:#166534}
+.msg-err{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B}
+.divider{text-align:center;color:var(--muted);font-size:12px;margin:1rem 0;position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border)}
+.divider::before{left:0}.divider::after{right:0}
+.back-link{display:block;text-align:center;font-size:12px;color:var(--muted);margin-top:1.25rem;text-decoration:none}
+.back-link:hover{color:var(--navy)}
+.hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">📊</div>
+  <h1>BT Team Capacity</h1>
+  <p class="subtitle">Accede con tu email y contraseña</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('login',this)">Iniciar sesión</button>
+    <button class="tab" onclick="showTab('reset',this)">Recuperar contraseña</button>
+    <button class="tab" onclick="showTab('change',this)">Cambiar contraseña</button>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="tab-login" class="panel active">
+    <div class="field">
+      <label>Email corporativo</label>
+      <input type="email" id="l-email" placeholder="ferran.mas@dxc.com">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="l-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">Iniciar sesión</button>
+    <div class="msg" id="login-msg"></div>
+  </div>
+
+  <!-- RECUPERAR -->
+  <div id="tab-reset" class="panel">
+    <div class="field">
+      <label>Email corporativo</label>
+      <input type="email" id="r-email" placeholder="ferran.mas@dxc.com">
+      <span class="hint">Se enviará un enlace de recuperación a tu email.</span>
+    </div>
+    <button class="btn btn-primary" onclick="doReset()">Enviar enlace de recuperación</button>
+    <div class="msg" id="reset-msg"></div>
+  </div>
+
+  <!-- CAMBIAR CONTRASEÑA -->
+  <div id="tab-change" class="panel">
+    <div class="field">
+      <label>Email corporativo</label>
+      <input type="email" id="c-email" placeholder="ferran.mas@dxc.com">
+    </div>
+    <div class="field">
+      <label>Contraseña actual</label>
+      <input type="password" id="c-old" placeholder="••••••••">
+    </div>
+    <div class="field">
+      <label>Nueva contraseña</label>
+      <input type="password" id="c-new" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="field">
+      <label>Confirmar nueva contraseña</label>
+      <input type="password" id="c-new2" placeholder="Repite la nueva contraseña">
+    </div>
+    <button class="btn btn-primary" onclick="doChange()">Cambiar contraseña</button>
+    <div class="msg" id="change-msg"></div>
+  </div>
+
+  <a href="index.html" class="back-link">← Volver al inicio</a>
+</div>
+
+<script type="module">
+import { auth, db, onAuthStateChanged, googleProvider }
+  from './firebase-config.js';
+import {
+  signInWithEmailAndPassword, sendPasswordResetEmail,
+  updatePassword, EmailAuthProvider, reauthenticateWithCredential
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+function showMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = `msg ${ok ? 'msg-ok' : 'msg-err'}`;
+  el.style.display = 'block';
+}
+
+window.showTab = (id, btn) => {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+};
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────
+window.doLogin = async () => {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  if(!email || !pass) { showMsg('login-msg','Rellena email y contraseña.',false); return; }
+
+  const btn = document.querySelector('#tab-login .btn-primary');
+  btn.disabled = true; btn.textContent = 'Accediendo...';
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+
+    // Verificar que está en la colección users
+    const userId  = email.replace(/[@.]/g, '_');
+    const userSnap= await getDoc(doc(db, 'users', userId));
+    if(!userSnap.exists()) {
+      await auth.signOut();
+      showMsg('login-msg', '❌ Tu cuenta no tiene acceso autorizado. Contacta con el administrador.', false);
+      btn.disabled=false; btn.textContent='Iniciar sesión';
+      return;
+    }
+
+    // Login correcto → ir al inicio
+    window.location = 'index.html';
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':    'No existe ninguna cuenta con ese email.',
+      'auth/wrong-password':    'Contraseña incorrecta.',
+      'auth/invalid-email':     'Email no válido.',
+      'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+      'auth/invalid-credential':'Email o contraseña incorrectos.',
+    };
+    showMsg('login-msg', msgs[e.code] || 'Error: ' + e.message, false);
+    btn.disabled=false; btn.textContent='Iniciar sesión';
+  }
+};
+
+// ── RECUPERAR CONTRASEÑA ───────────────────────────────────────────────────
+window.doReset = async () => {
+  const email = document.getElementById('r-email').value.trim();
+  if(!email) { showMsg('reset-msg','Introduce tu email.',false); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showMsg('reset-msg', '✅ Email enviado. Revisa tu bandeja de entrada (y la carpeta de spam).', true);
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found': 'No existe cuenta con ese email.',
+      'auth/invalid-email':  'Email no válido.',
+    };
+    showMsg('reset-msg', msgs[e.code] || 'Error: ' + e.message, false);
+  }
+};
+
+// ── CAMBIAR CONTRASEÑA ─────────────────────────────────────────────────────
+window.doChange = async () => {
+  const email = document.getElementById('c-email').value.trim();
+  const oldP  = document.getElementById('c-old').value;
+  const newP  = document.getElementById('c-new').value;
+  const newP2 = document.getElementById('c-new2').value;
+
+  if(!email||!oldP||!newP||!newP2) { showMsg('change-msg','Rellena todos los campos.',false); return; }
+  if(newP !== newP2) { showMsg('change-msg','Las contraseñas nuevas no coinciden.',false); return; }
+  if(newP.length < 6) { showMsg('change-msg','La contraseña debe tener al menos 6 caracteres.',false); return; }
+
+  try {
+    // Re-autenticar con credenciales actuales
+    const cred = await signInWithEmailAndPassword(auth, email, oldP);
+    const credential = EmailAuthProvider.credential(email, oldP);
+    await reauthenticateWithCredential(cred.user, credential);
+    await updatePassword(cred.user, newP);
+    showMsg('change-msg', '✅ Contraseña cambiada correctamente.', true);
+    document.getElementById('c-old').value = '';
+    document.getElementById('c-new').value = '';
+    document.getElementById('c-new2').value = '';
+  } catch(e) {
+    const msgs = {
+      'auth/wrong-password':    'La contraseña actual es incorrecta.',
+      'auth/user-not-found':    'No existe cuenta con ese email.',
+      'auth/invalid-credential':'Email o contraseña incorrectos.',
+      'auth/weak-password':     'La nueva contraseña es demasiado débil.',
+    };
+    showMsg('change-msg', msgs[e.code] || 'Error: ' + e.message, false);
+  }
+};
+</script>
+</body>
+</html>

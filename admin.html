@@ -96,6 +96,7 @@ tr:hover td{background:#F9FAFB}
     <button class="tab active" onclick="showTab('alta',this)">➕ Alta</button>
     <button class="tab" onclick="showTab('baja',this)">➖ Baja</button>
     <button class="tab" onclick="showTab('roster',this)">👥 Team Roster</button>
+    <button class="tab" onclick="showTab('accesos',this)">🔑 Accesos</button>
   </div>
 
   <!-- ALTA -->
@@ -291,6 +292,17 @@ async function loadRoster() {
   snap.forEach(d => people.push({id: d.id, ...d.data()}));
   people.sort((a,b) => a.name.localeCompare(b.name));
   window._rosterPeople = people; // para descarga y emails
+
+  // Poblar selector de accesos
+  const accSel = document.getElementById('acc-email');
+  if(accSel) {
+    accSel.innerHTML = '<option value="">— Seleccionar persona —</option>';
+    people.filter(p => p.email).forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.email; o.textContent = `${p.name} (${p.email})`;
+      accSel.appendChild(o);
+    });
+  }
 
   // Tabla roster
   const tbody = document.getElementById('roster-tbody');
@@ -611,6 +623,45 @@ window.eliminarPersona = async (id, nombre) => {
 document.getElementById('modal-overlay').addEventListener('click', e => {
   if(e.target === document.getElementById('modal-overlay')) closeModal();
 });
+
+// ── Gestión de accesos ───────────────────────────────────────────────────
+window.crearCuentaUsuario = async () => {
+  const email = document.getElementById('acc-email').value;
+  const pass  = document.getElementById('acc-pass').value;
+  if(!email) { alert('Selecciona un usuario.'); return; }
+  if(!pass || pass.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+
+  try {
+    // Usar Firebase Admin via REST API para crear/actualizar usuario
+    // Como no tenemos backend, usamos el endpoint de signup de Firebase Auth
+    const apiKey = 'AIzaSyBltWXJaPOnbQXd2FdqHvGtqiS_RHrXQLY';
+
+    // Intentar crear usuario nuevo
+    const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass, returnSecureToken: false })
+    });
+    const data = await resp.json();
+
+    if(data.error) {
+      if(data.error.message === 'EMAIL_EXISTS') {
+        // Usuario ya existe → usar reset password
+        const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+        await sendPasswordResetEmail(auth, email);
+        document.getElementById('acc-success').textContent =
+          `✅ El usuario ya existe. Se ha enviado un email de restablecimiento a ${email}.`;
+      } else {
+        throw new Error(data.error.message);
+      }
+    } else {
+      document.getElementById('acc-success').textContent =
+        `✅ Cuenta creada para ${email}. Contraseña temporal: ${pass}`;
+    }
+    document.getElementById('acc-success').style.display = 'block';
+    setTimeout(() => document.getElementById('acc-success').style.display = 'none', 5000);
+  } catch(e) { alert('Error: ' + e.message); }
+};
 
 window.showTab = (id, btn) => {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
