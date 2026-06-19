@@ -438,7 +438,18 @@ window.confirmarBaja = async () => {
   const fecha = document.getElementById('b-fecha').value;
   if(!id || !fecha) { alert('Selecciona una persona y una fecha de baja.'); return; }
   try {
+    // 1. Actualizar roster con fecha de baja
     await setDoc(doc(db, 'roster', id), { end: fecha, motivo: document.getElementById('b-motivo').value }, { merge: true });
+
+    // 2. Eliminar acceso — borrar de colección users
+    const person = window._rosterPeople.find(x => x.id === id);
+    if(person && person.email) {
+      const userId = person.email.replace(/[@.]/g, '_');
+      const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+      await delDoc(doc(db, 'users', userId)).catch(() => {});
+    }
+
+    document.getElementById('baja-success').textContent = '✅ Baja registrada y acceso revocado correctamente.';
     document.getElementById('baja-success').style.display = 'block';
     setTimeout(() => document.getElementById('baja-success').style.display = 'none', 3000);
     loadRoster();
