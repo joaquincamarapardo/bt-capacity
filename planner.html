@@ -39,6 +39,9 @@ th.we{background:#4A148C}
 
 td{padding:0;border:1px solid #f0f0f0;vertical-align:middle}
 td.name-cell{padding:5px 10px;font-size:12px;font-weight:500;background:#fff;position:sticky;left:0;z-index:4;min-width:150px;white-space:nowrap}
+td.team-cell{padding:3px 6px;background:#fff}
+.team-sel{font-size:11px;padding:3px 5px;border-radius:5px;border:1px solid var(--border);background:#fff;color:var(--text);width:100%;cursor:pointer}
+.team-sel:focus{outline:none;border-color:#0D1B4B}
 td.mode-cell{padding:4px 6px;font-size:11px;text-align:center;background:#fff}
 td.total-cell{padding:4px 6px;font-size:11px;text-align:center;font-weight:600;color:var(--navy);background:var(--pale)}
 td.we-cell{background:#BDBDBD;text-align:center;font-size:10px;color:#888}
@@ -240,7 +243,7 @@ function renderCalendar(mi) {
   const offshore= active.filter(p => p.mode === 'Offshore');
 
   // Headers
-  let headers = '<th class="name-col">Nombre</th><th class="mode-col">Modo</th><th class="total-col">TOTAL</th>';
+  let headers = '<th class="name-col">Nombre</th><th class="mode-col">Modo</th><th class="mode-col">Equipo</th><th class="total-col">TOTAL</th>';
   for(let d = 1; d <= nDays; d++) {
     const wd = (fw + d - 1) % 7;
     headers += `<th class="${wd >= 5 ? 'we' : ''}">${d}<br><span style="font-size:9px;opacity:.7">${DAY_NAMES[wd]}</span></th>`;
@@ -261,8 +264,16 @@ function renderCalendar(mi) {
       const bg     = idx % 2 === 0 ? '#fff' : '#fafafa';
 
       let total = 0;
+      const currentTeam = pData.team || p.team || 'BT';
       let cells = `<td class="name-cell" style="background:${bg}">${p.name}</td>`;
       cells    += `<td class="mode-cell" style="background:${bg}"><span class="${p.mode==='Onsite'?'badge-on':'badge-off'}">${p.mode}</span></td>`;
+      cells    += `<td class="team-cell" style="background:${bg}">
+        <select class="team-sel" data-pid="${pid}" data-month="${mk}" onchange="saveTeam(this)">
+          ${['BT','Financiacion','GT','Halley','MMPP','Pagos','Pasivo','Seguros','VOAC'].map(t=>
+            `<option value="${t}"${t===currentTeam?' selected':''}>${t}</option>`
+          ).join('')}
+        </select>
+      </td>`;
       cells    += `<td class="total-cell" id="total-${pid}">—</td>`;
 
       for(let d = 1; d <= nDays; d++) {
@@ -457,6 +468,25 @@ function updateTotals(pid, days, hd) {
   const el = document.getElementById(`total-${pid}`);
   if(el) el.textContent = calcPersonTotal(pid, curMonth, days);
 }
+
+// ── Guardar equipo ────────────────────────────────────────────────────────
+window.saveTeam = async (sel) => {
+  const pid   = sel.dataset.pid;
+  const mk    = sel.dataset.month;
+  const team  = sel.value;
+  const docId = `${mk}-${pid}`;
+  const docRef = doc(db, 'calendar', docId);
+
+  setSaveState('saving');
+  try {
+    await setDoc(docRef, { team }, { merge: true });
+    // Actualizar calData en memoria
+    if(calData[docId]) calData[docId].team = team;
+    setSaveState('saved');
+  } catch(e) {
+    setSaveState('error');
+  }
+};
 
 function setSaveState(state) {
   const el = document.getElementById('save-indicator');
