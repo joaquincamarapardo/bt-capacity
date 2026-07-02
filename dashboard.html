@@ -146,17 +146,21 @@ onAuthStateChanged(auth, async user => {
   const userSnap = await getDoc(docFn(db, 'users', userId));
   const role = userSnap.exists() ? userSnap.data().role : 'user';
 
+  // Guardar rol y email para uso posterior
+  window._userRole  = role;
+  window._userEmail = user.email;
+
   if(role !== 'admin') {
-    document.body.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,sans-serif;background:#F4F4F6;gap:16px">
-        <div style="background:#fff;border-radius:16px;padding:2.5rem 3rem;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center;max-width:420px">
-          <div style="font-size:40px;margin-bottom:1rem">🔒</div>
-          <h2 style="font-size:18px;font-weight:600;color:#0D1B4B;margin-bottom:.5rem">Acceso restringido</h2>
-          <p style="font-size:13px;color:#6B7280;margin-bottom:1.5rem">El dashboard es solo accesible para administradores.</p>
-          <a href="index.html" style="background:#0D1B4B;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500">Volver al inicio</a>
-        </div>
-      </div>`;
-    return;
+    // Users solo ven "Por persona" — ocultar todas las pestañas excepto esa
+    document.querySelectorAll('.nav-tab').forEach(btn => {
+      if(!btn.textContent.includes('Por persona')) btn.style.display = 'none';
+    });
+    // Activar directamente la pestaña Por persona
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('a'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('a'));
+    const personTab = document.querySelector('.nav-tab');
+    if(personTab) personTab.classList.add('a');
+    document.getElementById('p-person').classList.add('a');
   }
 
   loadData();
@@ -548,6 +552,32 @@ window.filterMonthly=()=>{
 
 // ── PERSON ─────────────────────────────────────────────────────────────────
 function renderPerson(){
+  const isAdmin = window._userRole === 'admin';
+  const userEmail = window._userEmail || '';
+
+  if(!isAdmin) {
+    // Usuario normal: mostrar solo su propia ficha sin selector
+    // Buscar su persona por email en el roster
+    const myPerson = STATE.people.find(p => {
+      const r = STATE.roster.find(r => r.name === p.name);
+      return r && r.email && r.email.toLowerCase() === userEmail.toLowerCase();
+    });
+
+    document.getElementById('p-person').innerHTML = `<div id="person-content"></div>`;
+
+    if(!myPerson) {
+      document.getElementById('person-content').innerHTML = `
+        <div style="text-align:center;padding:3rem;color:var(--muted);font-size:13px">
+          <div style="font-size:32px;margin-bottom:1rem">👤</div>
+          No se encontraron datos para tu cuenta.<br>Contacta con el administrador.
+        </div>`;
+      return;
+    }
+    renderPersonCard(myPerson);
+    return;
+  }
+
+  // Admin: selector completo
   const opts=STATE.people.map(p=>`<option value="${p.name}">${p.name} (${p.mode})</option>`).join('');
   document.getElementById('p-person').innerHTML=`
     <div class="psel"><select id="fp-sel" onchange="filterPerson()">${opts}</select></div>
@@ -555,9 +585,7 @@ function renderPerson(){
   filterPerson();
 }
 
-window.filterPerson=()=>{
-  const nm=document.getElementById('fp-sel')?.value;
-  const p=STATE.people.find(x=>x.name===nm); if(!p) return;
+function renderPersonCard(p) {
   const t=p.avail+p.abs||1;
   const cpills=Object.entries(p.codes).map(([c,n])=>
     `<span class="pill" style="background:${CCOLS[c]||'#eee'};padding:3px 9px;font-size:12px">${CNAMES[c]||c}: ${n} días</span>`
@@ -587,6 +615,12 @@ window.filterPerson=()=>{
       <tfoot><tr><td class="l">TOTAL AÑO</td><td>${p.avail.toLocaleString()}</td><td>${p.abs.toLocaleString()}</td><td>${pct(p.avail,t)}%</td>
         ${CODES.map(c=>`<td>${p.codes[c]||'—'}</td>`).join('')}</tr></tfoot>
     </table></div>`;
+}
+
+window.filterPerson=()=>{
+  const nm=document.getElementById('fp-sel')?.value;
+  const p=STATE.people.find(x=>x.name===nm); if(!p) return;
+  renderPersonCard(p);
 };
 
 // ── CHARTS ─────────────────────────────────────────────────────────────────
