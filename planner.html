@@ -70,6 +70,7 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
 .code-LD{background:#E8F5E9!important}
 .code-HPY{background:#B3E5FC!important}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -81,7 +82,8 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
       <div class="topbar-sub" id="topbar-sub">Cargando...</div>
     </div>
   </div>
-  <div class="save-indicator" id="save-indicator">✓ Guardado</div>
+  <button id="btn-export" onclick="exportExcel()" style="display:none;background:#1D9E75;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;display:none">⬇️ Exportar Excel</button>
+<div class="save-indicator" id="save-indicator">✓ Guardado</div>
 </div>
 
 <div class="month-nav" id="month-nav"></div>
@@ -122,6 +124,11 @@ let focusedInput = null;
 
 onAuthStateChanged(auth, user => {
   if(!user) { window.location = 'index.html'; return; }
+  const role = sessionStorage.getItem('userRole') || 'user';
+  if(role === 'admin') {
+    const btn = document.getElementById('btn-export');
+    if(btn) btn.style.display = 'block';
+  }
   init();
 });
 
@@ -485,6 +492,137 @@ window.saveTeam = async (sel) => {
     setSaveState('saved');
   } catch(e) {
     setSaveState('error');
+  }
+};
+
+// ── Exportar Excel ────────────────────────────────────────────────────────
+window.exportExcel = async () => {
+  const btn = document.getElementById('btn-export');
+  btn.textContent = '⏳ Cargando datos...';
+  btn.disabled = true;
+
+  try {
+    const wb = XLSX.utils.book_new();
+
+    // Cargar TODOS los meses de Firebase (no solo el actual)
+    btn.textContent = '⏳ Cargando todos los meses...';
+    const allSnap = await getDocs(collection(db, 'calendar'));
+    const allCalData = {};
+    allSnap.forEach(d => { allCalData[d.id] = d.data(); });
+    const MONTHS_FULL = ["January","February","March","April","May","June",
+                         "July","August","September","October","November","December"];
+    const DAY_NAMES_EN = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const YEAR = 2026;
+    const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+    // Ordenar roster: onsite primero, luego offshore, ambos alfabéticos
+    const sortedRoster = [...roster].sort((a,b) => {
+      if(a.mode !== b.mode) return a.mode === 'Onsite' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    for(let mi = 0; mi < 12; mi++) {
+      const mk     = MN[mi];
+      const nDays  = DAYS_IN_MONTH[mi];
+      const fw     = (new Date(YEAR, mi, 1).getDay() + 6) % 7; // lunes=0
+      const msDate = new Date(YEAR, mi, 1);
+      const meDate = new Date(YEAR, mi, nDays);
+
+      // Fila de cabecera: Nombre, Modo, Equipo, Total, 1..nDays
+      const header = ['Name', 'Mode', 'Team', 'TOTAL'];
+      for(let d = 1; d <= nDays; d++) {
+        const wd = (fw + d - 1) % 7;
+        header.push(`${d}
+${DAY_NAMES_EN[wd]}`);
+      }
+
+      const rows = [header];
+
+      // Personas activas en este mes
+      const active = sortedRoster.filter(p => {
+        const start = new Date(p.start + 'T00:00:00');
+        const end   = p.end ? new Date(p.end + 'T23:59:59') : null;
+        return start <= meDate && (!end || end >= msDate);
+      });
+
+      let totals = new Array(nDays).fill(0);
+      let totalSum = 0;
+
+      active.forEach(p => {
+        const docId = `${mk}-${p.id}`;
+        const pData = allCalData[docId] || calData[docId] || { days: {} };
+        const hd    = p.hrs ? p.hrs[mi] : 8;
+        const pStart= new Date(p.start + 'T00:00:00');
+        const pEnd  = p.end ? new Date(p.end + 'T23:59:59') : null;
+        const team  = (allCalData[docId] || calData[docId] || {}).team || p.team || 'BT';
+
+        let rowTotal = 0;
+        const dayVals = [];
+
+        for(let d = 1; d <= nDays; d++) {
+          const wd = (fw + d - 1) % 7;
+          const dd = new Date(YEAR, mi, d, 0, 0, 0, 0);
+          const inactive = dd < pStart || (pEnd && dd > pEnd);
+
+          if(wd >= 5) {
+            dayVals.push('');  // fin de semana
+          } else if(inactive) {
+            dayVals.push('');  // inactivo
+          } else {
+            const v = pData.days?.[String(d)];
+            if(v && typeof v === 'object' && v.type === 'EXT') {
+              dayVals.push(v.hours);
+              rowTotal += v.hours;
+              totals[d-1] += v.hours;
+            } else if(typeof v === 'number') {
+              dayVals.push(v);
+              rowTotal += v;
+              totals[d-1] += v;
+            } else if(v === '0' || v === null) {
+              dayVals.push(0);
+            } else if(typeof v === 'string') {
+              dayVals.push(v); // código de ausencia
+            } else {
+              dayVals.push(hd); // undefined = horas estándar
+              rowTotal += hd;
+              totals[d-1] += hd;
+            }
+          }
+        }
+
+        totalSum += rowTotal;
+        rows.push([p.name, p.mode, team, rowTotal, ...dayVals]);
+      });
+
+      // Fila de totales al final
+      rows.push(['TOTAL', '', '', totalSum, ...totals.map((v,i) => {
+        const wd = (fw + i) % 7;
+        return wd >= 5 ? '' : v;
+      })]);
+
+      // Crear hoja
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+
+      // Estilo de ancho de columnas
+      ws['!cols'] = [
+        { wch: 22 }, // Nombre
+        { wch: 9  }, // Mode
+        { wch: 12 }, // Team
+        { wch: 8  }, // Total
+        ...Array(nDays).fill({ wch: 5 })
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, MONTHS_FULL[mi]);
+    }
+
+    // Descargar
+    XLSX.writeFile(wb, `BT_Capacity_${YEAR}.xlsx`);
+    btn.textContent = '✅ Descargado';
+    setTimeout(() => { btn.textContent = '⬇️ Exportar Excel'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    alert('Error al exportar: ' + e.message);
+    btn.textContent = '⬇️ Exportar Excel';
+    btn.disabled = false;
   }
 };
 
