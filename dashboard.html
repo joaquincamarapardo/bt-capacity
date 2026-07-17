@@ -5,6 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BT Capacity — Dashboard</title>
+<script src="js/config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -87,11 +88,16 @@ tfoot td{background:var(--navy)!important;color:#fff;font-weight:600;border-bott
   <div class="topbar-left">
     <a href="index.html" class="back-btn">← Inicio</a>
     <div>
-      <div class="topbar-title">Dashboard de Capacidad 2026</div>
+      <div class="topbar-title">Dashboard de Capacidad</div>
       <div class="topbar-sub">BT Team · DXC Technology</div>
     </div>
   </div>
   <div class="topbar-right">
+    <label style="color:#90CAF9;font-size:12px;display:flex;gap:6px;align-items:center;margin-right:12px">
+      Año:
+      <select id="year-selector" style="background:#1a2f6e;color:#fff;border:1px solid #90CAF9;padding:5px 8px;border-radius:6px;font-size:12px;cursor:pointer">
+      </select>
+    </label>
     <span class="last-update" id="last-update"></span>
     <button class="btn-refresh" onclick="loadData()">↻ Actualizar</button>
   </div>
@@ -124,17 +130,21 @@ import { auth, db, onAuthStateChanged, collection, getDocs }
   from './firebase-config.js';
 
 // ── CONSTANTES ─────────────────────────────────────────────────────────────
-const MN   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const MNL  = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
-const YEAR = 2026;
+// Usar config.js para obtener datos dinámicos
+let currentYear = getCurrentValidYear();
+let yearData = getYearData(currentYear);
+
+const MN   = yearData.monthNames;
+const MNL  = yearData.monthNamesES;
+const DAYS = yearData.daysInMonth;
+const YEAR = currentYear;
 const CODES  = ['H','L','S','T','M','COM','LD','HPY','EXT','F'];
 const CNAMES = {H:'Holiday',L:'License',S:'Sickness',T:'Training',M:'Maternity leave',COM:'Compensated',LD:'Libre disp.',HPY:'Holiday prev. year',EXT:'Extra hours',F:'Festivity'};
 const CCOLS  = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80',F:'#FFAB91'};
 const TCOLORS = ['#0D1B4B','#F26522','#1D9E75','#D85A30','#7F77DD','#BA7517','#D4537E','#378ADD','#639922','#888780'];
 
 const CHS = {};
-let STATE = { roster: [], people: [], annual: [], teamData: {}, teams: [] };
+let STATE = { roster: [], people: [], annual: [], teamData: {}, teams: [], currentYear: YEAR };
 
 // ── AUTH ───────────────────────────────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
@@ -208,8 +218,9 @@ function processData(roster, calMap) {
     let totAvail=0,totAbs=0,onAvail=0,offAvail=0,onAbs=0,offAbs=0,onHC=0,offHC=0;
     const absType = {};
 
-    // Filtrar entradas de este mes
-    const monthEntries = Object.entries(calMap).filter(([k]) => k.startsWith(mk+'-'));
+    // Filtrar entradas de este mes y año (formato: {year}-{month}-{id})
+    const monthPrefix = `${YEAR}-${mk}-`;
+    const monthEntries = Object.entries(calMap).filter(([k]) => k.startsWith(monthPrefix));
 
     monthEntries.forEach(([key, data]) => {
       const name  = data.name;
@@ -866,6 +877,44 @@ window.T=(id,btn)=>{
 function showLoading(msg){ document.getElementById('loading').style.display='flex'; document.getElementById('content').style.display='none'; document.getElementById('loading-txt').textContent=msg||'Cargando...'; }
 function hideLoading(){ document.getElementById('loading').style.display='none'; document.getElementById('content').style.display='block'; }
 function setLoadingTxt(t){ document.getElementById('loading-txt').textContent=t; }
+
+// ── Inicializar selector de años (dinámico, multi-año) ──────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const selector = document.getElementById('year-selector');
+  if(selector) {
+    // Generar opciones de años disponibles
+    const years = getAvailableYears();
+    const currentYear = getCurrentValidYear();
+
+    years.forEach(year => {
+      const option = document.createElement('option');
+      option.value = year;
+      option.textContent = year;
+      if(year === currentYear) option.selected = true;
+      selector.appendChild(option);
+    });
+
+    // Al cambiar año, actualizar datos
+    selector.addEventListener('change', (e) => {
+      const newYear = parseInt(e.target.value);
+      currentYear = newYear;
+      yearData = getYearData(newYear);
+      STATE.currentYear = newYear;
+      localStorage.setItem('selectedYear', newYear);
+      console.log(`Año seleccionado: ${newYear}`);
+      // Recargar datos para el nuevo año
+      loadData();
+    });
+
+    // Restaurar año anterior del localStorage
+    const savedYear = localStorage.getItem('selectedYear');
+    if(savedYear && years.includes(parseInt(savedYear))) {
+      selector.value = savedYear;
+      currentYear = parseInt(savedYear);
+      yearData = getYearData(currentYear);
+    }
+  }
+});
 </script>
 </body>
 </html>
