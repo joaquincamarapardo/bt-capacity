@@ -10,19 +10,31 @@
 
 ## 📌 Fases del Plan
 
-### **FASE 1: Preparación del Entorno** (Esta semana)
-- [ ] ✅ Crear rama `feature/multi-year-refactor` en Git
-- [ ] Crear proyecto Firebase temporal `bt-capacity-staging`
-- [ ] Copiar credenciales Firebase a rama (no push)
-- [ ] Documento del plan (este archivo)
-- [ ] Script de migración esqueleto
+### **FASE 1: Preparación del Entorno** ✅ COMPLETA
+- [x] ✅ Crear rama `feature/multi-year-refactor` en Git
+- [x] ✅ Crear `config.js` centralizado con constantes
+- [x] ✅ Crear `migration.js` con funciones de migración
+- [x] ✅ Crear `MIGRATION_GUIDE.md` para producción
+- [x] ✅ Documento del plan (este archivo)
 
-### **FASE 2: Refactorización de Código** 
-- [ ] Crear `config.js` centralizado con constantes
-- [ ] Refactorizar `admin.html` para año dinámico
-- [ ] Refactorizar `dashboard.html` con totales anuales
-- [ ] Refactorizar `planner.html` para multi-año
-- [ ] Actualizar estructura Firestore (agregar `year`)
+### **FASE 2: Refactorización de Código** ✅ COMPLETA
+- [x] ✅ Refactorizar `admin.html` para año dinámico
+  - Selector de año en topbar
+  - Usar config.js para constantes
+  - Cambiar IDs Firestore: `{month}-{id}` → `{year}-{month}-{id}`
+  - Funciones dinámicas: actualizarCalendario(), actualizarCalendarioBaja()
+  
+- [x] ✅ Refactorizar `dashboard.html` con totales anuales
+  - Selector de año en topbar
+  - Usar config.js para constantes
+  - Filtro de calendarios por año
+  - Recargar datos al cambiar año
+  
+- [x] ✅ Refactorizar `planner.html` para multi-año
+  - Selector de año en topbar
+  - Usar config.js para constantes
+  - Filtro de calendarios por año
+  - Recargar mes actual al cambiar año
 
 ### **FASE 3: Migración de Datos**
 - [ ] Script para migrar datos 2026 existentes
@@ -238,11 +250,23 @@ Nuevos tests en `tests/multi-year.spec.js`:
 
 | Hito | Estimado | Status |
 |------|----------|--------|
-| Fase 1: Prep. Entorno | Esta semana | 🟡 Progreso |
-| Fase 2: Refactor código | 2-3 semanas | ⏳ Por hacer |
-| Fase 3: Migración datos | 1 semana | ⏳ Por hacer |
+| Fase 1: Prep. Entorno | Esta semana | ✅ Completa |
+| Fase 2: Refactor código | 2-3 semanas | ✅ Completa |
+| Fase 3: Migración datos | 1 semana | 🟡 Próximo |
 | Fase 4: Testing | 1-2 semanas | ⏳ Por hacer |
 | Fase 5: Integración | Fin mes | ⏳ Por hacer |
+
+## 📊 Progreso Global
+
+```
+FASE 1 ████████████████████ 100% ✅
+FASE 2 ████████████████████ 100% ✅
+FASE 3 ░░░░░░░░░░░░░░░░░░░░   0% 🟡
+FASE 4 ░░░░░░░░░░░░░░░░░░░░   0% ⏳
+FASE 5 ░░░░░░░░░░░░░░░░░░░░   0% ⏳
+────────────────────────────────
+Total: 40% completado
+```
 
 ---
 
