@@ -66,6 +66,9 @@ tr:hover td{background:#F9FAFB}
 @media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}.hrs-grid{grid-template-columns:repeat(4,1fr)}}
 
 /* Modal edición */
+</style>
+<script src="js/config.js"></script>
+<style>
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:none;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:16px;padding:1.5rem;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
@@ -88,6 +91,13 @@ tr:hover td{background:#F9FAFB}
       <div class="topbar-title">Gestión de equipo BT</div>
       <div class="topbar-sub">Altas · Bajas · Team Roster</div>
     </div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <label style="color:#90CAF9;font-size:12px;display:flex;gap:6px;align-items:center">
+      Año:
+      <select id="year-selector" style="background:#1a2f6e;color:#fff;border:1px solid #90CAF9;padding:5px 8px;border-radius:6px;font-size:12px;cursor:pointer">
+      </select>
+    </label>
   </div>
 </div>
 
@@ -375,6 +385,7 @@ window.confirmarAlta = async () => {
 
   const hrs = Array.from(document.querySelectorAll('.hrs')).map(i => parseInt(i.value)||8);
   const id  = nombre.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  const selectedYear = parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
 
   const data = {
     name:     nombre,
@@ -387,6 +398,7 @@ window.confirmarAlta = async () => {
     end:      document.getElementById('a-fin').value || null,
     flex:     document.getElementById('a-flex').checked,
     hrs:      hrs,
+    year:     selectedYear,
     createdAt: new Date().toISOString()
   };
 
@@ -394,18 +406,11 @@ window.confirmarAlta = async () => {
     // 1. Guardar en roster
     await setDoc(doc(db, 'roster', id), data);
 
-    // 2. Crear documentos de calendario para cada mes activo
-    const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
-    const YEAR = 2026;
-    const startDate = new Date(inicio);
-    const endDate   = data.end ? new Date(data.end) : null;
+    // 2. Crear documentos de calendario para cada mes activo (usando año seleccionado)
     const team      = data.team || 'BT';
+    const mesesCreados = await actualizarCalendario(id, nombre, team, data.mode, inicio, data.end||null, hrs, selectedYear);
 
-    // Crear calendario usando función auxiliar (fechas inclusivas)
-    const mesesCreados = await actualizarCalendario(id, nombre, team, data.mode, inicio, data.end||null, hrs);
-
-    // Crear usuario en colección users con rol 'user' (si no existe ya)
+    // 3. Crear usuario en colección users con rol 'user' (si no existe ya)
     const userId = email.replace(/[@.]/g, '_');
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -419,7 +424,7 @@ window.confirmarAlta = async () => {
     }
 
     document.getElementById('alta-success').textContent =
-      `✅ Alta registrada correctamente. Calendario creado para ${mesesCreados} meses.`;
+      `✅ Alta registrada correctamente (${selectedYear}). Calendario creado para ${mesesCreados} meses.`;
     document.getElementById('alta-success').style.display = 'block';
     setTimeout(() => document.getElementById('alta-success').style.display = 'none', 4000);
     loadRoster();
@@ -440,11 +445,14 @@ window.confirmarBaja = async () => {
   try {
     // 1. Actualizar roster con fecha de baja
     const person = window._rosterPeople.find(x => x.id === id);
+    const selectedYear = parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
+
     await setDoc(doc(db, 'roster', id), { end: fecha, motivo: document.getElementById('b-motivo').value }, { merge: true });
 
     // 2. Actualizar calendarios: poner horas a 0 después de fecha de baja en mes actual, eliminar meses posteriores
     if(person) {
-      const mesesActualizados = await actualizarCalendarioBaja(id, person.name, person.team, fecha);
+      const personYear = person.year || selectedYear;
+      const mesesActualizados = await actualizarCalendarioBaja(id, person.name, person.team, fecha, personYear);
 
       // 3. Eliminar acceso — borrar de colección users
       if(person.email) {
@@ -513,11 +521,14 @@ window.copyEmails = () => {
   });
 };
 
-// ── Función auxiliar: generar/actualizar calendario ─────────────────────
-async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
-  const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
-  const YEAR = 2026;
+// ── Función auxiliar: generar/actualizar calendario (dinámico, multi-año) ─────────────────────
+async function actualizarCalendario(id, nombre, team, mode, start, end, hrs, year = null) {
+  // Usar año seleccionado o dinámico
+  const selectedYear = year || parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
+  const yearData = getYearData(selectedYear);
+  const MN = yearData.monthNames;
+  const daysInMonth = yearData.daysInMonth;
+
   // Parsear como hora local para evitar problemas de timezone
   const startDate = new Date(start + 'T00:00:00');
   const endDate   = end ? new Date(end + 'T23:59:59') : null;
@@ -525,28 +536,28 @@ async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
   const promises = [];
   for(let mi = 0; mi < 12; mi++) {
     const mk         = MN[mi];
-    const monthStart = new Date(YEAR, mi, 1);
-    const monthEnd   = new Date(YEAR, mi, DAYS_IN_MONTH[mi]);
+    const monthStart = new Date(selectedYear, mi, 1);
+    const monthEnd   = new Date(selectedYear, mi, daysInMonth[mi]);
 
     // Persona activa en este mes
     if(startDate > monthEnd) continue;
     if(endDate && endDate < monthStart) continue;
 
     const hd = hrs[mi] || (mode==='Offshore' ? 9 : 8);
-    const fw = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
+    const fw = (new Date(selectedYear, mi, 1).getDay() + 6) % 7;
     const days = {};
 
-    for(let d = 1; d <= DAYS_IN_MONTH[mi]; d++) {
+    for(let d = 1; d <= daysInMonth[mi]; d++) {
       const wd = (fw + d - 1) % 7;
       if(wd >= 5) continue;
       // Normalizar dd a medianoche para comparación correcta
-      const dd = new Date(YEAR, mi, d, 0, 0, 0, 0);
+      const dd = new Date(selectedYear, mi, d, 0, 0, 0, 0);
       if(dd < startDate) continue;
       if(endDate && dd > endDate) continue;
       days[String(d)] = hd;
     }
 
-    const docId = `${mk}-${id}`;
+    const docId = getCalendarDocId(selectedYear, mk, id);
     // Leer calendario existente para preservar ediciones manuales
     const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
       .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
@@ -557,36 +568,38 @@ async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
       const mergedDays = { ...existing.days };
       // Quitar días que quedan fuera del nuevo rango
       Object.keys(mergedDays).forEach(dStr => {
-        const dd = new Date(YEAR, mi, parseInt(dStr), 0, 0, 0, 0);
+        const dd = new Date(selectedYear, mi, parseInt(dStr), 0, 0, 0, 0);
         if(dd < startDate || (endDate && dd > endDate)) delete mergedDays[dStr];
       });
       // Añadir días nuevos que no existían
       Object.entries(days).forEach(([dStr, val]) => {
         if(mergedDays[dStr] === undefined) mergedDays[dStr] = val;
       });
-      promises.push(setDoc(doc(db, 'calendar', docId), { ...existing, name: nombre, team, days: mergedDays }));
+      promises.push(setDoc(doc(db, 'calendar', docId), { ...existing, name: nombre, team, year: selectedYear, month: mk, monthIndex: mi, days: mergedDays }));
     } else {
-      promises.push(setDoc(doc(db, 'calendar', docId), { name: nombre, team, month: mk, monthIndex: mi, days }));
+      promises.push(setDoc(doc(db, 'calendar', docId), { name: nombre, team, year: selectedYear, month: mk, monthIndex: mi, days }));
     }
   }
   await Promise.all(promises);
   return promises.length;
 }
 
-// ── Función auxiliar: actualizar calendario para baja ─────────────────────
-async function actualizarCalendarioBaja(id, nombre, team, fechaBaja) {
-  const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
-  const YEAR = 2026;
+// ── Función auxiliar: actualizar calendario para baja (dinámico, multi-año) ─────────────────────
+async function actualizarCalendarioBaja(id, nombre, team, fechaBaja, year = null) {
+  const selectedYear = year || parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
+  const yearData = getYearData(selectedYear);
+  const MN = yearData.monthNames;
+  const daysInMonth = yearData.daysInMonth;
+
   const bajaDate = new Date(fechaBaja + 'T23:59:59');
 
   let mesesActualizados = 0;
 
   for(let mi = 0; mi < 12; mi++) {
     const mk = MN[mi];
-    const docId = `${mk}-${id}`;
-    const monthStart = new Date(YEAR, mi, 1);
-    const monthEnd = new Date(YEAR, mi, DAYS_IN_MONTH[mi], 23, 59, 59);
+    const docId = getCalendarDocId(selectedYear, mk, id);
+    const monthStart = new Date(selectedYear, mi, 1);
+    const monthEnd = new Date(selectedYear, mi, daysInMonth[mi], 23, 59, 59);
 
     // Si la baja es antes del inicio del mes, eliminar el documento
     if(bajaDate < monthStart) {
@@ -608,7 +621,7 @@ async function actualizarCalendarioBaja(id, nombre, team, fechaBaja) {
         // Poner horas a 0 para todos los días posteriores a la fecha de baja
         Object.keys(updatedDays).forEach(dStr => {
           const dayNum = parseInt(dStr);
-          const dd = new Date(YEAR, mi, dayNum, 23, 59, 59);
+          const dd = new Date(selectedYear, mi, dayNum, 23, 59, 59);
           if(dd > bajaDate) {
             updatedDays[dStr] = 0;
           }
@@ -768,6 +781,40 @@ window.showTab = (id, btn) => {
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
 };
+
+// ── Inicializar selector de años (dinámico, multi-año) ──────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const selector = document.getElementById('year-selector');
+  if(selector) {
+    // Generar opciones de años disponibles
+    const years = getAvailableYears();
+    const currentYear = getCurrentValidYear();
+
+    years.forEach(year => {
+      const option = document.createElement('option');
+      option.value = year;
+      option.textContent = year;
+      if(year === currentYear) option.selected = true;
+      selector.appendChild(option);
+    });
+
+    // Guardar año seleccionado en localStorage
+    selector.addEventListener('change', (e) => {
+      localStorage.setItem('selectedYear', e.target.value);
+      console.log(`Año seleccionado: ${e.target.value}`);
+      // Opcional: recargar datos del roster para el nuevo año
+    });
+
+    // Restaurar año anterior del localStorage
+    const savedYear = localStorage.getItem('selectedYear');
+    if(savedYear && years.includes(parseInt(savedYear))) {
+      selector.value = savedYear;
+    }
+  }
+
+  // Cargar roster al iniciar
+  loadRoster();
+});
 </script>
 </body>
 </html>
