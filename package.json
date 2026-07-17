@@ -1,0 +1,11 @@
+{
+  "name": "bt-capacity",
+  "version": "1.0.0",
+  "description": "BT Team Capacity Planning App",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

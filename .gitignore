@@ -2,3 +2,16 @@
 _backup_local_pre_sync/
 evolutivos/
 *.zip
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Playwright test artifacts
+test-results/
+playwright-report/
+.playwright-mcp/
+
+# Environment
+.env
+.env.local
