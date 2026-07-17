@@ -439,17 +439,25 @@ window.confirmarBaja = async () => {
   if(!id || !fecha) { alert('Selecciona una persona y una fecha de baja.'); return; }
   try {
     // 1. Actualizar roster con fecha de baja
+    const person = window._rosterPeople.find(x => x.id === id);
     await setDoc(doc(db, 'roster', id), { end: fecha, motivo: document.getElementById('b-motivo').value }, { merge: true });
 
-    // 2. Eliminar acceso — borrar de colección users
-    const person = window._rosterPeople.find(x => x.id === id);
-    if(person && person.email) {
-      const userId = person.email.replace(/[@.]/g, '_');
-      const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-      await delDoc(doc(db, 'users', userId)).catch(() => {});
+    // 2. Actualizar calendarios: poner horas a 0 después de fecha de baja en mes actual, eliminar meses posteriores
+    if(person) {
+      const mesesActualizados = await actualizarCalendarioBaja(id, person.name, person.team, fecha);
+
+      // 3. Eliminar acceso — borrar de colección users
+      if(person.email) {
+        const userId = person.email.replace(/[@.]/g, '_');
+        const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await delDoc(doc(db, 'users', userId)).catch(() => {});
+      }
+
+      document.getElementById('baja-success').textContent = '✅ Baja registrada, calendarios actualizados y acceso revocado.';
+    } else {
+      document.getElementById('baja-success').textContent = '✅ Baja registrada correctamente.';
     }
 
-    document.getElementById('baja-success').textContent = '✅ Baja registrada y acceso revocado correctamente.';
     document.getElementById('baja-success').style.display = 'block';
     setTimeout(() => document.getElementById('baja-success').style.display = 'none', 3000);
     loadRoster();
@@ -563,6 +571,59 @@ async function actualizarCalendario(id, nombre, team, mode, start, end, hrs) {
   }
   await Promise.all(promises);
   return promises.length;
+}
+
+// ── Función auxiliar: actualizar calendario para baja ─────────────────────
+async function actualizarCalendarioBaja(id, nombre, team, fechaBaja) {
+  const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+  const YEAR = 2026;
+  const bajaDate = new Date(fechaBaja + 'T23:59:59');
+
+  let mesesActualizados = 0;
+
+  for(let mi = 0; mi < 12; mi++) {
+    const mk = MN[mi];
+    const docId = `${mk}-${id}`;
+    const monthStart = new Date(YEAR, mi, 1);
+    const monthEnd = new Date(YEAR, mi, DAYS_IN_MONTH[mi], 23, 59, 59);
+
+    // Si la baja es antes del inicio del mes, eliminar el documento
+    if(bajaDate < monthStart) {
+      // Borrar documento de este mes y posteriores
+      const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+      await delDoc(doc(db, 'calendar', docId)).catch(() => {});
+      mesesActualizados++;
+      continue;
+    }
+
+    // Si la baja es dentro del mes, actualizar horas a 0 para días posteriores
+    if(bajaDate >= monthStart && bajaDate <= monthEnd) {
+      const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+        .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
+        .then(snap => snap.exists() ? snap.data() : null);
+
+      if(existing && existing.days) {
+        const updatedDays = { ...existing.days };
+        // Poner horas a 0 para todos los días posteriores a la fecha de baja
+        Object.keys(updatedDays).forEach(dStr => {
+          const dayNum = parseInt(dStr);
+          const dd = new Date(YEAR, mi, dayNum, 23, 59, 59);
+          if(dd > bajaDate) {
+            updatedDays[dStr] = 0;
+          }
+        });
+        await setDoc(doc(db, 'calendar', docId), { ...existing, days: updatedDays });
+        mesesActualizados++;
+      }
+      continue;
+    }
+
+    // Si la baja es después del mes, el mes está activo — no hacer nada
+    mesesActualizados++;
+  }
+
+  return mesesActualizados;
 }
 
 // ── Edición ──────────────────────────────────────────────────────────────
