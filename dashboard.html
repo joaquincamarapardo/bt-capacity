@@ -213,6 +213,10 @@ function processData(roster, calMap) {
 
     monthEntries.forEach(([key, data]) => {
       const name  = data.name;
+
+      // Validar que existe un nombre válido — omitir registros sin nombre
+      if(!name || typeof name !== 'string' || name.trim() === '') return;
+
       const team  = data.team || 'BT';
       const rp    = roster.find(r => r.name === name);
       const mode  = rp ? rp.mode : '?';
@@ -355,7 +359,7 @@ function renderOverview(){
 window.filterOvTable=()=>{
   const mode=document.getElementById('fov-mode')?.value||'';
   const name=(document.getElementById('fov-name')?.value||'').toLowerCase();
-  const f=STATE.people.filter(p=>(!mode||p.mode===mode)&&(!name||p.name.toLowerCase().includes(name))).sort((a,b)=>b.avail-a.avail);
+  const f=STATE.people.filter(p=>p.name&&(!mode||p.mode===mode)&&(!name||p.name.toLowerCase().includes(name))).sort((a,b)=>b.avail-a.avail);
   const el=document.getElementById('tbody-ov'); if(!el) return;
   el.innerHTML=f.map(p=>{
     const t=p.avail+p.abs||1;
