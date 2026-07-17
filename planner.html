@@ -260,7 +260,7 @@ function renderCalendar(mi) {
 
   function renderSection(people, label, color) {
     if(!people.length) return '';
-    let rows = `<tr class="section-row"><td colspan="${nDays + 3}" style="background:${color}">${label} (${people.length})</td></tr>`;
+    let rows = `<tr class="section-row"><td colspan="${nDays + 4}" style="background:${color}">${label} (${people.length})</td></tr>`;
     people.forEach((p, idx) => {
       const pid  = p.id;
       const pData= calData[`${mk}-${pid}`] || { days: {} };
@@ -328,7 +328,7 @@ function renderCalendar(mi) {
     });
 
     // Fila total sección
-    let totalRow = `<tr class="total-row"><td class="name-cell">TOTAL ${label.split(' ')[0]}</td><td></td><td></td>`;
+    let totalRow = `<tr class="total-row"><td class="name-cell">TOTAL ${label.split(' ')[0]}</td><td></td><td></td><td></td>`;
     for(let d = 1; d <= nDays; d++) {
       const wd = (fw + d - 1) % 7;
       if(wd >= 5) { totalRow += '<td style="background:#4A148C"></td>'; continue; }
