@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BT Capacity — Planner</title>
+<script src="js/config.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#0D1B4B;--orange:#F26522;--gray:#F4F4F6;--border:#E0E0E0;--text:#1a1a1a;--muted:#6B7280;--pale:#E8F0FB}
@@ -78,12 +79,19 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
   <div class="topbar-left">
     <a href="index.html" class="back-btn">← Inicio</a>
     <div>
-      <div class="topbar-title">Capacity Planner 2026</div>
+      <div class="topbar-title">Capacity Planner</div>
       <div class="topbar-sub" id="topbar-sub">Cargando...</div>
     </div>
   </div>
-  <button id="btn-export" onclick="exportExcel()" style="display:none;background:#1D9E75;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;display:none">⬇️ Exportar Excel</button>
-<div class="save-indicator" id="save-indicator">✓ Guardado</div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <label style="color:#90CAF9;font-size:12px;display:flex;gap:6px;align-items:center">
+      Año:
+      <select id="year-selector" style="background:#1a2f6e;color:#fff;border:1px solid #90CAF9;padding:5px 8px;border-radius:6px;font-size:12px;cursor:pointer">
+      </select>
+    </label>
+    <button id="btn-export" onclick="exportExcel()" style="display:none;background:#1D9E75;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;display:none">⬇️ Exportar Excel</button>
+    <div class="save-indicator" id="save-indicator">✓ Guardado</div>
+  </div>
 </div>
 
 <div class="month-nav" id="month-nav"></div>
@@ -108,10 +116,14 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
 import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, collection, getDocs, onSnapshot }
   from './firebase-config.js';
 
-const MN   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const MNL  = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
-const YEAR = 2026;
+// Usar config.js para obtener datos dinámicos
+let currentYear = getCurrentValidYear();
+let yearData = getYearData(currentYear);
+
+const MN   = yearData.monthNames;
+const MNL  = yearData.monthNamesES;
+const DAYS = yearData.daysInMonth;
+const YEAR = currentYear;
 const CODES = ['H','L','S','T','M','COM','LD','HPY','EXT','F'];
 const CODE_COLORS = {H:'code-H',L:'code-L',S:'code-S',T:'code-T',M:'code-M',COM:'code-COM',LD:'code-LD',HPY:'code-HPY'};
 const DAY_NAMES = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
@@ -163,14 +175,15 @@ window.switchMonth = async (mi) => {
 
 async function loadMonth(mi) {
   const mk = MN[mi];
-  document.getElementById('topbar-sub').textContent = `${MNL[mi]} 2026`;
+  document.getElementById('topbar-sub').textContent = `${MNL[mi]} ${YEAR}`;
   document.getElementById('cal-container').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">Cargando...</div>';
 
   calData = {};
   const snap = await getDocs(collection(db, 'calendar'));
   snap.forEach(d => {
     const data = d.data();
-    if(data.month === mk) calData[d.id] = data;
+    // Filtrar por año y mes (formato: {year}-{month}-{id})
+    if(data.year === YEAR && data.month === mk) calData[d.id] = data;
   });
 
   renderCalendar(mi);
@@ -631,6 +644,43 @@ function setSaveState(state) {
   el.className = `save-indicator ${state}`;
   el.textContent = state === 'saving' ? '⏳ Guardando...' : state === 'error' ? '❌ Error al guardar' : '✓ Guardado';
 }
+
+// ── Inicializar selector de años (dinámico, multi-año) ──────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const selector = document.getElementById('year-selector');
+  if(selector) {
+    // Generar opciones de años disponibles
+    const years = getAvailableYears();
+    const currentYear = getCurrentValidYear();
+
+    years.forEach(year => {
+      const option = document.createElement('option');
+      option.value = year;
+      option.textContent = year;
+      if(year === currentYear) option.selected = true;
+      selector.appendChild(option);
+    });
+
+    // Al cambiar año, actualizar datos
+    selector.addEventListener('change', (e) => {
+      const newYear = parseInt(e.target.value);
+      currentYear = newYear;
+      yearData = getYearData(newYear);
+      localStorage.setItem('selectedYear', newYear);
+      console.log(`Año seleccionado: ${newYear}`);
+      // Recargar el mes actual con el nuevo año
+      loadMonth(curMonth);
+    });
+
+    // Restaurar año anterior del localStorage
+    const savedYear = localStorage.getItem('selectedYear');
+    if(savedYear && years.includes(parseInt(savedYear))) {
+      selector.value = savedYear;
+      currentYear = parseInt(savedYear);
+      yearData = getYearData(currentYear);
+    }
+  }
+});
 </script>
 </body>
 </html>
