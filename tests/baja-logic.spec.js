@@ -91,45 +91,74 @@ test.describe('Lógica de Baja - Procesamiento de Calendarios', () => {
   });
 
   test('verifica cálculo de horas después de baja', async ({ page }) => {
-    // Simular cálculo de horas disponibles
-    const config = {
-      startDate: new Date('2026-03-01'),
-      bajaDate: new Date('2026-06-15'),
-      hoursPerMonth: 8,
-      workDaysPerMonth: 21 // Aproximación
+    // CORRECCIÓN: 8h es POR DÍA HÁBIL, no por mes
+    // Días hábiles por mes en 2026 (excluye sábados y domingos)
+    const workDaysPerMonth = {
+      'Mar': 21, // Marzo 2026
+      'Apr': 22, // Abril 2026
+      'May': 21, // Mayo 2026
+      'Jun': 22  // Junio 2026 (pero solo hasta día 15)
     };
 
-    // Cálculo: desde marzo hasta mitad de junio (4.5 meses aprox)
-    // 4.5 meses × 8h/día × 21 días/mes / 30 = ~25h por mes
-    const monthsActive = 4.5;
-    const expectedHours = monthsActive * config.hoursPerMonth; // ~36h
+    const hoursPerDay = 8;
 
-    expect(expectedHours).toBeGreaterThan(20);
-    expect(expectedHours).toBeLessThan(50);
+    // ANTES de la baja: Marzo a Diciembre
+    // Cálculo correcto:
+    const hoursBeforeBaja = (
+      workDaysPerMonth['Mar'] * hoursPerDay +  // 21 × 8 = 168h
+      workDaysPerMonth['Apr'] * hoursPerDay +  // 22 × 8 = 176h
+      workDaysPerMonth['May'] * hoursPerDay +  // 21 × 8 = 168h
+      // Julio a Diciembre (aproximadamente 22 días hábiles c/u)
+      (22 * 6) * hoursPerDay                   // ~132h × 8 = ~1056h
+    );
+
+    // DESPUÉS de la baja (15 de Junio): Marzo a Junio 15
+    // Junio tiene ~11 días hábiles hasta el 15
+    const hoursAfterBaja = (
+      workDaysPerMonth['Mar'] * hoursPerDay +  // 21 × 8 = 168h
+      workDaysPerMonth['Apr'] * hoursPerDay +  // 22 × 8 = 176h
+      workDaysPerMonth['May'] * hoursPerDay +  // 21 × 8 = 168h
+      11 * hoursPerDay                         // ~11 × 8 = ~88h
+    );
+
+    // Verificaciones
+    expect(hoursBeforeBaja).toBeGreaterThan(1200); // Debería ser ~1568h
+    expect(hoursAfterBaja).toBeGreaterThan(500);   // Debería ser ~600h
+    expect(hoursAfterBaja).toBeLessThan(hoursBeforeBaja); // Debe bajar
   });
 
   test('verifica que la estructura de datos es coherente', async ({ page }) => {
-    // Definir estructura de calendario simulada
+    // CORRECCIÓN: Simulación más realista de calendarios
+    // Junio tiene ~22 días hábiles (lunes a viernes)
+    // Si baja el 15 de junio, hasta el 14 son ~11 días hábiles
+
     const calendarBefore = {
-      'Mar-test-emp': {
-        month: 'Mar',
-        days: { '1': 8, '2': 8, '3': 8, '4': 8, '5': 8 }
-      },
       'Jun-test-emp': {
         month: 'Jun',
-        days: { '1': 8, '2': 8, '3': 8, '4': 8, '5': 8, '6': 8 }
+        // Simular 22 días hábiles del mes × 8h/día
+        days: {
+          '1': 8, '2': 8, '3': 8, '4': 8, '5': 8,   // Semana 1
+          '6': 8, '7': 8, '8': 8, '9': 8, '10': 8,  // Semana 2
+          '11': 8, '12': 8, '13': 8, '14': 8, '15': 8, // Semana 3 (hasta día 15)
+          '16': 8, '17': 8, '18': 8, '19': 8, '20': 8, // Semana 4 (después baja)
+          '21': 8, '22': 8, '23': 8, '24': 8, '25': 8, // Después baja
+          '26': 8, '27': 8, '28': 8, '29': 8, '30': 8  // Después baja
+        }
       }
     };
 
-    // Después de baja, junio debería tener 0 horas después del día 15
+    // Después de baja el 15, todos los días posteriores → 0
     const calendarAfter = {
-      'Mar-test-emp': {
-        month: 'Mar',
-        days: { '1': 8, '2': 8, '3': 8, '4': 8, '5': 8 }
-      },
       'Jun-test-emp': {
         month: 'Jun',
-        days: { '1': 8, '2': 8, '3': 8, '4': 8, '15': 0, '16': 0 }
+        days: {
+          '1': 8, '2': 8, '3': 8, '4': 8, '5': 8,
+          '6': 8, '7': 8, '8': 8, '9': 8, '10': 8,
+          '11': 8, '12': 8, '13': 8, '14': 8, '15': 8,
+          '16': 0, '17': 0, '18': 0, '19': 0, '20': 0, // ← CAMBIO: Puestos a 0
+          '21': 0, '22': 0, '23': 0, '24': 0, '25': 0,
+          '26': 0, '27': 0, '28': 0, '29': 0, '30': 0
+        }
       }
     };
 
@@ -137,9 +166,10 @@ test.describe('Lógica de Baja - Procesamiento de Calendarios', () => {
     const daysBefore = Object.values(calendarBefore['Jun-test-emp'].days).reduce((s, h) => s + h, 0);
     const daysAfter = Object.values(calendarAfter['Jun-test-emp'].days).reduce((s, h) => s + h, 0);
 
-    expect(daysBefore).toBe(48); // 6 días × 8h
-    expect(daysAfter).toBe(32);  // 4 días × 8h (días 1-4)
-    expect(daysAfter).toBeLessThan(daysBefore);
+    expect(daysBefore).toBe(30 * 8); // 30 días hábiles (aproximación) × 8h
+    expect(daysAfter).toBe(15 * 8);  // Hasta día 15 = ~15 días × 8h
+    expect(daysAfter).toBeLessThan(daysBefore); // Debe disminuir
+    expect(daysAfter).toBeGreaterThan(100); // Pero sigue siendo positivo
   });
 
   test('verifica que los meses posteriores no existen', async ({ page }) => {
