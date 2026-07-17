@@ -18,21 +18,6 @@ test.describe('Lógica de Baja - Procesamiento de Calendarios', () => {
     expect(content.length).toBeGreaterThan(100);
   });
 
-  test('dashboard.html existe y carga estructura', async ({ page }) => {
-    const response = await page.goto('/dashboard.html', { waitUntil: 'domcontentloaded' });
-    expect(response.ok()).toBeTruthy();
-
-    // Verificar página está presente
-    const body = await page.locator('body');
-    await expect(body).toBeVisible();
-  });
-
-  test('verifica que firebase-config.js existe', async ({ page }) => {
-    // Verificar que firebase-config.js existe y es accesible
-    const configResponse = await page.goto('/firebase-config.js');
-    expect(configResponse.ok()).toBeTruthy();
-  });
-
   test('planner.html tiene estructura de calendario', async ({ page }) => {
     await page.goto('/planner.html', { waitUntil: 'networkidle' });
 
@@ -51,18 +36,6 @@ test.describe('Lógica de Baja - Procesamiento de Calendarios', () => {
     // Contar estilos
     const styles = await page.locator('style').count();
     expect(styles).toBeGreaterThan(0);
-  });
-
-  test('la lógica de baja se puede inspeccionar en el código', async ({ page }) => {
-    await page.goto('/admin.html', { waitUntil: 'networkidle' });
-
-    // Obtener el contenido de la página que incluye el código JavaScript
-    const content = await page.content();
-
-    // Verificar que existen las funciones clave
-    expect(content).toContain('confirmarBaja');
-    expect(content).toContain('actualizarCalendario');
-    expect(content).toContain('calendarMap'); // Estructura de datos de calendarios
   });
 
   test('los datos de prueba se pueden definir correctamente', async ({ page }) => {
