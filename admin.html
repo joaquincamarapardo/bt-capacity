@@ -844,13 +844,23 @@ window.showTab = (id, btn) => {
 async function loadAñosVisibles() {
   try {
     const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
-    const visibleYears = settingsSnap.exists() ? settingsSnap.data().visibleYears || [] : [];
-    const allYears = getAvailableYears();
+    const settings = settingsSnap.exists() ? settingsSnap.data() : {};
+
+    // Leer años disponibles de Firestore, o usar el rango por defecto
+    let allYears = settings.availableYears || [];
+    if(allYears.length === 0) {
+      // Si no existen años en Firestore, usar el rango por defecto (YEAR_MIN a YEAR_MAX de config.js)
+      allYears = getAvailableYears();
+      // Guardar el rango por defecto en Firestore para futuras creaciones
+      await setDoc(doc(db, 'settings', 'years'), { availableYears: allYears }, { merge: true });
+    }
+
+    const visibleYears = settings.visibleYears || [];
 
     const grid = document.getElementById('años-grid');
     grid.innerHTML = '';
 
-    allYears.forEach(year => {
+    allYears.sort((a,b) => a-b).forEach(year => {
       const isChecked = visibleYears.includes(year);
       const label = document.createElement('label');
       label.style.display = 'flex';
@@ -889,7 +899,15 @@ window.guardarAñosVisibles = async () => {
   }
 
   try {
-    await setDoc(doc(db, 'settings', 'years'), { visibleYears }, { merge: true });
+    // Obtener la configuración actual para preservar availableYears
+    const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
+    const settings = settingsSnap.exists() ? settingsSnap.data() : {};
+
+    await setDoc(doc(db, 'settings', 'years'), {
+      availableYears: settings.availableYears || [],
+      visibleYears
+    }, { merge: true });
+
     document.getElementById('años-success').style.display = 'block';
     setTimeout(() => document.getElementById('años-success').style.display = 'none', 3000);
   } catch(e) {
@@ -914,30 +932,36 @@ window.crearNuevoAño = async () => {
     return;
   }
 
-  const allYears = getAvailableYears();
-  if(allYears.includes(year)) {
-    errorMsg.textContent = `❌ El año ${year} ya existe`;
-    errorMsg.style.display = 'block';
-    return;
-  }
-
   try {
-    // Obtener los años visibles actuales
+    // Obtener configuración actual
     const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
-    const visibleYears = settingsSnap.exists() ? (settingsSnap.data().visibleYears || []) : [];
+    const settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
-    // Agregar el nuevo año a la lista de visibles
-    const updatedYears = [...visibleYears, year].sort((a,b) => a-b);
+    const availableYears = settings.availableYears || [];
+
+    // Validar que el año no exista
+    if(availableYears.includes(year)) {
+      errorMsg.textContent = `❌ El año ${year} ya existe`;
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    // Agregar el nuevo año a la lista de disponibles (pero NO a visibleYears)
+    const updatedAvailable = [...availableYears, year].sort((a,b) => a-b);
 
     // Guardar en Firestore
-    await setDoc(doc(db, 'settings', 'years'), { visibleYears: updatedYears }, { merge: true });
+    await setDoc(doc(db, 'settings', 'years'), {
+      availableYears: updatedAvailable,
+      visibleYears: settings.visibleYears || []
+    }, { merge: true });
 
     // Limpiar input
     yearInput.value = '';
 
     // Mostrar éxito
+    successMsg.textContent = `✅ Año ${year} creado. Habilítalo en "Años visibles" para que usuarios normales lo vean.`;
     successMsg.style.display = 'block';
-    setTimeout(() => successMsg.style.display = 'none', 3000);
+    setTimeout(() => successMsg.style.display = 'none', 4000);
 
     // Recargar la lista de años
     loadAñosVisibles();
