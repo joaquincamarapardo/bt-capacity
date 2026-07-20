@@ -257,6 +257,30 @@ tr:hover td{background:#F9FAFB}
       <div style="background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-top:1rem;display:none;font-size:12px;color:#991B1B" id="create-year-error"></div>
     </div>
 
+    <!-- Copiar datos de año anterior -->
+    <div class="form-card" style="margin-bottom:1.5rem">
+      <div class="section">Copiar datos de año anterior</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Copia la información de equipo, disponibilidad y asignaciones de un año a otro. Útil para inicializar un año nuevo con datos del anterior.
+      </p>
+      <div class="grid2">
+        <div class="field">
+          <label>Copiar desde (año origen) *</label>
+          <select id="copy-from-year"><option value="">-- Selecciona año --</option></select>
+        </div>
+        <div class="field">
+          <label>Copiar a (año destino) *</label>
+          <select id="copy-to-year"><option value="">-- Selecciona año --</option></select>
+        </div>
+      </div>
+      <div class="note note-warn">⚠️ Se copiarán TODOS los datos del año origen. Si el año destino ya tiene datos, serán sobrescritos.</div>
+      <div class="success-msg" id="copy-year-success">✅ Datos copiados correctamente.</div>
+      <div style="background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-top:1rem;display:none;font-size:12px;color:#991B1B" id="copy-year-error"></div>
+      <div class="actions">
+        <button class="btn-primary" onclick="copiarDatosAño()">📋 Copiar año</button>
+      </div>
+    </div>
+
     <!-- Años visibles para usuarios normales -->
     <div class="form-card">
       <div class="section">Años visibles para usuarios normales</div>
@@ -332,7 +356,7 @@ tr:hover td{background:#F9FAFB}
 </div>
 
 <script type="module">
-import { auth, db, onAuthStateChanged, collection, getDocs, doc, setDoc, getDoc, onSnapshot }
+import { auth, db, onAuthStateChanged, collection, getDocs, doc, setDoc, getDoc, onSnapshot, writeBatch, query, where }
   from './firebase-config.js';
 
 const MNS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -851,6 +875,13 @@ async function loadAñosVisibles() {
 
     const visibleYears = settings.visibleYears || [];
 
+    // Poblar selectores de copiar año
+    const copyFromSelect = document.getElementById('copy-from-year');
+    const copyToSelect = document.getElementById('copy-to-year');
+    const options = allYears.sort((a,b) => a-b).map(y => `<option value="${y}">${y}</option>`).join('');
+    copyFromSelect.innerHTML = '<option value="">-- Selecciona año --</option>' + options;
+    copyToSelect.innerHTML = '<option value="">-- Selecciona año --</option>' + options;
+
     const grid = document.getElementById('años-grid');
     grid.innerHTML = '';
 
@@ -961,6 +992,86 @@ window.crearNuevoAño = async () => {
     loadAñosVisibles();
   } catch(e) {
     errorMsg.textContent = `❌ Error: ${e.message}`;
+    errorMsg.style.display = 'block';
+  }
+};
+
+// Copiar datos de año a año
+window.copiarDatosAño = async () => {
+  const fromYear = parseInt(document.getElementById('copy-from-year').value);
+  const toYear = parseInt(document.getElementById('copy-to-year').value);
+  const errorMsg = document.getElementById('copy-year-error');
+  const successMsg = document.getElementById('copy-year-success');
+
+  errorMsg.style.display = 'none';
+  successMsg.style.display = 'none';
+
+  // Validaciones
+  if(!fromYear || !toYear) {
+    errorMsg.textContent = '❌ Selecciona ambos años';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  if(fromYear === toYear) {
+    errorMsg.textContent = '❌ Los años deben ser diferentes';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  if(!confirm(`¿Copiar todos los datos de ${fromYear} a ${toYear}? Los datos existentes en ${toYear} serán sobrescritos.`)) {
+    return;
+  }
+
+  try {
+    errorMsg.textContent = '⏳ Copiando datos...';
+    errorMsg.style.display = 'block';
+    errorMsg.style.background = '#FEF3C7';
+    errorMsg.style.borderColor = '#FCD34D';
+    errorMsg.style.color = '#92400E';
+
+    // Obtener todos los documentos del año origen
+    const q = query(collection(db, 'calendar'), where('year', '==', fromYear));
+    const snapshot = await getDocs(q);
+
+    if(snapshot.empty) {
+      errorMsg.textContent = `❌ No hay datos en el año ${fromYear}`;
+      errorMsg.style.background = '#FFF5F5';
+      errorMsg.style.borderColor = '#FECACA';
+      errorMsg.style.color = '#991B1B';
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    let count = 0;
+    const batch = writeBatch(db);
+
+    // Copiar cada documento
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Crear nuevo docId con el año destino
+      const newDocId = `${toYear}-${data.month}-${data.personId}`;
+      // Copiar datos con el nuevo año
+      batch.set(doc(db, 'calendar', newDocId), { ...data, year: toYear });
+      count++;
+    });
+
+    // Ejecutar batch
+    await batch.commit();
+
+    errorMsg.style.display = 'none';
+    successMsg.textContent = `✅ ${count} registros copiados de ${fromYear} a ${toYear}`;
+    successMsg.style.display = 'block';
+    setTimeout(() => successMsg.style.display = 'none', 4000);
+
+    // Limpiar selectores
+    document.getElementById('copy-from-year').value = '';
+    document.getElementById('copy-to-year').value = '';
+  } catch(e) {
+    errorMsg.textContent = `❌ Error: ${e.message}`;
+    errorMsg.style.background = '#FFF5F5';
+    errorMsg.style.borderColor = '#FECACA';
+    errorMsg.style.color = '#991B1B';
     errorMsg.style.display = 'block';
   }
 };

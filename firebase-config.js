@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch }
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ⚠️ STAGING CONFIGURATION - For testing only
@@ -22,4 +22,4 @@ const db   = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 export { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged,
-         doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch };
+         doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where };
