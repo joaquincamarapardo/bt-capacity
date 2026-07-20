@@ -847,13 +847,7 @@ async function loadAñosVisibles() {
     const settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
     // Leer años disponibles de Firestore, o usar el rango por defecto
-    let allYears = settings.availableYears || [];
-    if(allYears.length === 0) {
-      // Si no existen años en Firestore, usar el rango por defecto (YEAR_MIN a YEAR_MAX de config.js)
-      allYears = getAvailableYears();
-      // Guardar el rango por defecto en Firestore para futuras creaciones
-      await setDoc(doc(db, 'settings', 'years'), { availableYears: allYears }, { merge: true });
-    }
+    let allYears = settings.availableYears || getAvailableYears();
 
     const visibleYears = settings.visibleYears || [];
 
@@ -937,7 +931,7 @@ window.crearNuevoAño = async () => {
     const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
     const settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
-    const availableYears = settings.availableYears || [];
+    const availableYears = settings.availableYears || getAvailableYears();
 
     // Validar que el año no exista
     if(availableYears.includes(year)) {
