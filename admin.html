@@ -247,10 +247,6 @@ tr:hover td{background:#F9FAFB}
           <label>Año nuevo *</label>
           <input type="number" id="new-year-input" placeholder="2036" min="2026" max="2099">
         </div>
-        <div class="field">
-          <label style="visibility:hidden">.</label>
-          <button class="btn-primary" onclick="crearNuevoAño()" style="width:100%;padding:12px">➕ Crear año</button>
-        </div>
       </div>
       <div class="note">ℹ️ El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.</div>
       <div class="success-msg" id="create-year-success">✅ Año creado correctamente.</div>
@@ -1122,9 +1118,11 @@ window.copiarDatosAño = async () => {
 };
 
 // ── Modal de confirmación ──────────────────────────────────────────────
+console.log('✅ Cargando funciones de confirmación');
 let confirmAction = null;
 
 window.showConfirmModal = (action, title, message, btnText = 'Confirmar') => {
+  console.log('showConfirmModal llamado:', action);
   confirmAction = action;
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-message').textContent = message;
@@ -1149,11 +1147,12 @@ window.executeConfirmAction = async () => {
 // Wrapper para crear año con confirmación
 window.confirmarCrearAño = () => {
   const year = document.getElementById('new-year-input').value;
+  console.log('confirmarCrearAño:', year);
   if(!year) {
     alert('Por favor ingresa un año');
     return;
   }
-  showConfirmModal('create-year', `¿Crear el año ${year}?`, 'El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.', '➕ Crear');
+  window.showConfirmModal('create-year', `¿Crear el año ${year}?`, 'El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.', '➕ Crear');
 };
 
 // Wrapper para copiar año con confirmación
