@@ -5,14 +5,15 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ⚠️ PRODUCTION CONFIGURATION
+// ⚠️ STAGING CONFIGURATION - Testing multi-year app
+// Will switch to production (bt-capacity) after validation
 const firebaseConfig = {
-  apiKey: "AIzaSyBltWXJaPOnbQXd2FdqHvGtqiS_RHrXQLY",
-  authDomain: "bt-capacity.firebaseapp.com",
-  projectId: "bt-capacity",
-  storageBucket: "bt-capacity.firebasestorage.app",
-  messagingSenderId: "940597797288",
-  appId: "1:940597797288:web:0280d731491aaa6b273d9d"
+  apiKey: "AIzaSyD412iPDdJ9DfSyfJtiVXK_ndQg2CpOVW0",
+  authDomain: "bt-capacity-staging.firebaseapp.com",
+  projectId: "bt-capacity-staging",
+  storageBucket: "bt-capacity-staging.firebasestorage.app",
+  messagingSenderId: "981104614191",
+  appId: "1:981104614191:web:074a4f845d714d77989fda"
 };
 
 const app  = initializeApp(firebaseConfig);
