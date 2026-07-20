@@ -511,6 +511,21 @@ window.insertCode = (code) => {
 };
 
 async function saveCell(input) {
+  // Validar modo de validación
+  const role = sessionStorage.getItem('userRole') || 'user';
+  if(isValidating && role !== 'admin') {
+    alert('Sistema en validación. No es posible hacer cambios en este momento.');
+    // Revertir el cambio
+    const docId = getCalendarDocId(currentYear, MN[curMonth], input.dataset.pid);
+    const existing = calData[docId];
+    if(existing && existing.days) {
+      input.value = existing.days[input.dataset.day] || '';
+    } else {
+      input.value = '';
+    }
+    return;
+  }
+
   const pid = input.dataset.pid;
   const day = input.dataset.day;
   const hd  = parseInt(input.dataset.hd);
@@ -578,6 +593,13 @@ function updateTotals(pid, days, hd) {
 
 // ── Guardar equipo ────────────────────────────────────────────────────────
 window.saveTeam = async (sel) => {
+  // Validar modo de validación
+  const role = sessionStorage.getItem('userRole') || 'user';
+  if(isValidating && role !== 'admin') {
+    alert('Sistema en validación. No es posible hacer cambios en este momento.');
+    return;
+  }
+
   const pid   = sel.dataset.pid;
   const mk    = sel.dataset.month;
   const team  = sel.value;
