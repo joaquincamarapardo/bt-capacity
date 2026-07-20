@@ -128,23 +128,24 @@ tfoot td{background:var(--navy)!important;color:#fff;font-weight:600;border-bott
 <script type="module">
 import { auth, db, onAuthStateChanged, collection, getDocs }
   from './firebase-config.js';
+import { query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── CONSTANTES ─────────────────────────────────────────────────────────────
 // Usar config.js para obtener datos dinámicos
 let currentYear = getCurrentValidYear();
 let yearData = getYearData(currentYear);
 
-const MN   = yearData.monthNames;
-const MNL  = yearData.monthNamesES;
-const DAYS = yearData.daysInMonth;
-const YEAR = currentYear;
+let MN   = yearData.monthNames;
+let MNL  = yearData.monthNamesES;
+let DAYS = yearData.daysInMonth;
 const CODES  = ['H','L','S','T','M','COM','LD','HPY','EXT','F'];
 const CNAMES = {H:'Holiday',L:'License',S:'Sickness',T:'Training',M:'Maternity leave',COM:'Compensated',LD:'Libre disp.',HPY:'Holiday prev. year',EXT:'Extra hours',F:'Festivity'};
 const CCOLS  = {H:'#FFD700',L:'#90CAF9',S:'#FFCDD2',T:'#B2EBF2',M:'#FCE4EC',COM:'#A5D6A7',LD:'#E8F5E9',HPY:'#B3E5FC',EXT:'#FFCC80',F:'#FFAB91'};
 const TCOLORS = ['#0D1B4B','#F26522','#1D9E75','#D85A30','#7F77DD','#BA7517','#D4537E','#378ADD','#639922','#888780'];
 
 const CHS = {};
-let STATE = { roster: [], people: [], annual: [], teamData: {}, teams: [], currentYear: YEAR };
+let STATE = { roster: [], people: [], annual: [], teamData: {}, teams: [], currentYear: currentYear };
+let visibleYears = []; // Años visibles para este usuario
 
 // ── AUTH ───────────────────────────────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
@@ -173,8 +174,70 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('p-person').classList.add('a');
   }
 
+  // Cargar años visibles e inicializar selector
+  await loadVisibleYears();
+  initializeYearSelector();
+
   loadData();
 });
+
+// Cargar años visibles desde settings
+async function loadVisibleYears() {
+  try {
+    const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
+    if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
+      visibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
+    } else {
+      visibleYears = getAvailableYears();
+    }
+  } catch(e) {
+    console.warn('No settings found, usando todos los años');
+    visibleYears = getAvailableYears();
+  }
+}
+
+// Inicializar selector de años
+function initializeYearSelector() {
+  const selector = document.getElementById('year-selector');
+  if(!selector) return;
+
+  selector.innerHTML = '';
+  const savedYear = localStorage.getItem('selectedYear');
+
+  visibleYears.forEach(year => {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    if(String(year) === savedYear || (year === visibleYears[0] && !savedYear)) {
+      option.selected = true;
+    }
+    selector.appendChild(option);
+  });
+
+  selector.addEventListener('change', (e) => {
+    currentYear = parseInt(e.target.value);
+    yearData = getYearData(currentYear);
+    // Actualizar arrays de meses y días
+    MN = yearData.monthNames;
+    MNL = yearData.monthNamesES;
+    DAYS = yearData.daysInMonth;
+    STATE.currentYear = currentYear;
+    localStorage.setItem('selectedYear', currentYear);
+    console.log(`📅 Año seleccionado: ${currentYear}`);
+    loadData();
+    // Si la pestaña Equipos On/Off está activa, re-renderizar
+    if(document.getElementById('p-teammode').classList.contains('a')) {
+      setTimeout(() => renderTeamMode(), 100);
+    }
+  });
+
+  // Usar el primer año visible
+  if(visibleYears.length > 0) {
+    currentYear = parseInt(savedYear) || visibleYears[0];
+    yearData = getYearData(currentYear);
+    STATE.currentYear = currentYear;
+  }
+}
 
 // ── CARGA DE DATOS ─────────────────────────────────────────────────────────
 window.loadData = async () => {
@@ -186,8 +249,12 @@ window.loadData = async () => {
     rosterSnap.forEach(d => roster.push({ id: d.id, ...d.data() }));
 
     setLoadingTxt('Cargando calendarios...');
-    // Calendar
-    const calSnap = await getDocs(collection(db, 'calendar'));
+    // Calendar — OPTIMIZACIÓN: Filtrar por año en Firestore
+    const q = query(
+      collection(db, 'calendar'),
+      where('year', '==', currentYear)
+    );
+    const calSnap = await getDocs(q);
     const calMap  = {};
     calSnap.forEach(d => { calMap[d.id] = d.data(); });
 
@@ -214,12 +281,12 @@ function processData(roster, calMap) {
   for(let mi = 0; mi < 12; mi++) {
     const mk    = MN[mi];
     const nDays = DAYS[mi];
-    const fw    = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
+    const fw    = (new Date(currentYear, mi, 1).getDay() + 6) % 7;
     let totAvail=0,totAbs=0,onAvail=0,offAvail=0,onAbs=0,offAbs=0,onHC=0,offHC=0;
     const absType = {};
 
     // Filtrar entradas de este mes y año (formato: {year}-{month}-{id})
-    const monthPrefix = `${YEAR}-${mk}-`;
+    const monthPrefix = `${currentYear}-${mk}-`;
     const monthEntries = Object.entries(calMap).filter(([k]) => k.startsWith(monthPrefix));
 
     monthEntries.forEach(([key, data]) => {
@@ -233,7 +300,9 @@ function processData(roster, calMap) {
       const mode  = rp ? rp.mode : '?';
       const hd    = rp ? (rp.hrs?.[mi] || 8) : 8;
 
-      if(!people[name]) people[name] = { mode, team, hrs: rp?.hrs||[], months:{}, codes:{} };
+      if(!people[name]) people[name] = { mode, team: team, hrs: rp?.hrs||[], months:{}, codes:{}, teams:{} };
+      // Registrar equipo por mes (puede cambiar cada mes)
+      people[name].teams[mk] = team;
 
       let avail=0, absHrs=0;
       const dayCodes = {};
@@ -258,7 +327,7 @@ function processData(roster, calMap) {
           // día activo sin dato → usar horas por defecto
           const pStart = rp ? new Date(rp.start) : new Date(2026,0,1);
           const pEnd   = rp?.end ? new Date(rp.end) : null;
-          const dd     = new Date(YEAR, mi, d);
+          const dd     = new Date(currentYear, mi, d);
           if(dd >= pStart && (!pEnd || dd <= pEnd)) avail += hd;
         }
       }
@@ -278,7 +347,7 @@ function processData(roster, calMap) {
       teamData[team][mk].avail += avail;
       teamData[team][mk].abs   += absHrs;
       teamData[team][mk].count++;
-      teamData[team][mk].people.push({ name, mode, avail, abs: absHrs, codes: dayCodes });
+      teamData[team][mk].people.push({ name, mode, team, avail, abs: absHrs, codes: dayCodes });
     });
 
     annual.push({ month:mk, total_hrs:totAvail, abs_hrs:totAbs,
@@ -287,7 +356,7 @@ function processData(roster, calMap) {
   }
 
   const peopleList = Object.entries(people).map(([name, p]) => ({
-    name, mode:p.mode, team:p.team,
+    name, mode:p.mode, team:p.team, teams:p.teams,
     avail: Object.values(p.months).reduce((s,m)=>s+(m.avail||0),0),
     abs:   Object.values(p.months).reduce((s,m)=>s+(m.abs||0),0),
     codes: p.codes, months: p.months
@@ -326,7 +395,7 @@ function renderOverview(){
   const nOff=d.people.filter(p=>p.mode==='Offshore').length;
 
   let html=`<div class="cards">
-    ${card('Total horas 2026',fmt(totA)+'h',`${totA.toLocaleString()} h disponibles`,true)}
+    ${card(`Total horas ${currentYear}`,fmt(totA)+'h',`${totA.toLocaleString()} h disponibles`,true)}
     ${card('Total ausencias',fmt(totB)+'h',`${pct(totB,totA+totB)}% sobre capacidad bruta`)}
     ${card('Personas activas',d.people.length,`${nOn} Onsite · ${nOff} Offshore`)}
     ${card('Mes más productivo',maxM.month,`${maxM.total_hrs.toLocaleString()} h`)}
@@ -478,7 +547,7 @@ window.renderByTeamView=()=>{
       rows+=`<tr><td class="l"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.tColors[t]};margin-right:6px;vertical-align:middle"></span>${t}</td>
         <td>${a.toLocaleString()}</td><td>${b.toLocaleString()}</td><td>${pct(a,a+b)}%</td><td>${p}</td><td>${p?Math.round(a/p):0}</td></tr>`;
     });
-    con.innerHTML=`<div class="chart-card"><h3>Horas disponibles por equipo — 2026</h3>
+    con.innerHTML=`<div class="chart-card"><h3>Horas disponibles por equipo — ${currentYear}</h3>
       <div class="cw" style="height:220px"><canvas id="ch-bt1"></canvas></div></div>
       <div class="tw"><table><thead><tr><th class="l">Equipo</th><th>H disponibles</th><th>H ausencia</th><th>% disp.</th><th>Personas</th><th>Media h/p</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -501,7 +570,7 @@ window.renderByTeamView=()=>{
     let pRows='';
     active.forEach(t=>{
       d.teamData[t][mk].people.sort((a,b)=>b.avail-a.avail).forEach(p=>{
-        pRows+=`<tr><td class="l"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.tColors[t]};margin-right:4px;vertical-align:middle"></span>${t}</td>
+        pRows+=`<tr><td class="l"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${d.tColors[p.team]};margin-right:4px;vertical-align:middle"></span>${p.team}</td>
           <td class="l">${p.name}</td><td class="l">${bdg(p.mode)}</td>
           <td>${p.avail}</td><td>${p.abs}</td><td>${pct(p.avail,p.avail+p.abs||1)}%</td></tr>`;
       });
@@ -559,7 +628,8 @@ window.filterMonthly=()=>{
   const tbody=document.getElementById('tbody-monthly');
   if(tbody) tbody.innerHTML=f.map(p=>{
     const t=(p.m.avail||0)+(p.m.abs||0)||1;
-    return `<tr><td class="l">${p.name}</td><td class="l">${bdg(p.mode)}</td><td class="l">${p.team}</td>
+    const monthTeam = p.teams && p.teams[mk] ? p.teams[mk] : p.team;
+    return `<tr><td class="l">${p.name}</td><td class="l">${bdg(p.mode)}</td><td class="l">${monthTeam}</td>
       <td>${p.m.avail||0}</td><td>${p.m.abs||0}</td><td>${pct(p.m.avail||0,t)}%</td>
       ${CODES.map(c=>pill(p.m.codes||{},c)).join('')}</tr>`;
   }).join('');
@@ -718,7 +788,7 @@ function renderTeamMode(){
   </tr>`).join('');
 
   let html = `
-    <div class="sec">Horas disponibles Onsite vs Offshore por equipo — 2026</div>
+    <div class="sec">Horas disponibles Onsite vs Offshore por equipo — ${currentYear}</div>
     <div class="chart-card">
       <h3>Comparativa anual — Onsite vs Offshore por equipo</h3>
       <div class="leg"><span><i style="background:#0D1B4B"></i>Onsite</span><span><i style="background:#F26522"></i>Offshore</span></div>
@@ -878,43 +948,6 @@ function showLoading(msg){ document.getElementById('loading').style.display='fle
 function hideLoading(){ document.getElementById('loading').style.display='none'; document.getElementById('content').style.display='block'; }
 function setLoadingTxt(t){ document.getElementById('loading-txt').textContent=t; }
 
-// ── Inicializar selector de años (dinámico, multi-año) ──────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  const selector = document.getElementById('year-selector');
-  if(selector) {
-    // Generar opciones de años disponibles
-    const years = getAvailableYears();
-    const currentYear = getCurrentValidYear();
-
-    years.forEach(year => {
-      const option = document.createElement('option');
-      option.value = year;
-      option.textContent = year;
-      if(year === currentYear) option.selected = true;
-      selector.appendChild(option);
-    });
-
-    // Al cambiar año, actualizar datos
-    selector.addEventListener('change', (e) => {
-      const newYear = parseInt(e.target.value);
-      currentYear = newYear;
-      yearData = getYearData(newYear);
-      STATE.currentYear = newYear;
-      localStorage.setItem('selectedYear', newYear);
-      console.log(`Año seleccionado: ${newYear}`);
-      // Recargar datos para el nuevo año
-      loadData();
-    });
-
-    // Restaurar año anterior del localStorage
-    const savedYear = localStorage.getItem('selectedYear');
-    if(savedYear && years.includes(parseInt(savedYear))) {
-      selector.value = savedYear;
-      currentYear = parseInt(savedYear);
-      yearData = getYearData(currentYear);
-    }
-  }
-});
 </script>
 </body>
 </html>

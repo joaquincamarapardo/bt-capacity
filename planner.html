@@ -115,15 +115,15 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
 <script type="module">
 import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, collection, getDocs, onSnapshot }
   from './firebase-config.js';
+import { query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Usar config.js para obtener datos dinámicos
 let currentYear = getCurrentValidYear();
 let yearData = getYearData(currentYear);
 
-const MN   = yearData.monthNames;
-const MNL  = yearData.monthNamesES;
-const DAYS = yearData.daysInMonth;
-const YEAR = currentYear;
+let MN   = yearData.monthNames;
+let MNL  = yearData.monthNamesES;
+let DAYS = yearData.daysInMonth;
 const CODES = ['H','L','S','T','M','COM','LD','HPY','EXT','F'];
 const CODE_COLORS = {H:'code-H',L:'code-L',S:'code-S',T:'code-T',M:'code-M',COM:'code-COM',LD:'code-LD',HPY:'code-HPY'};
 const DAY_NAMES = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
@@ -133,6 +133,7 @@ let roster   = [];
 let calData  = {}; // {personId: {days: {d: val}}}
 let saveTimer = null;
 let focusedInput = null;
+let visibleYears = []; // Años visibles para este usuario
 
 onAuthStateChanged(auth, user => {
   if(!user) { window.location = 'index.html'; return; }
@@ -141,10 +142,71 @@ onAuthStateChanged(auth, user => {
     const btn = document.getElementById('btn-export');
     if(btn) btn.style.display = 'block';
   }
+  // Restaurar año guardado antes de inicializar
+  const savedYear = localStorage.getItem('selectedYear');
+  if(savedYear) {
+    currentYear = parseInt(savedYear);
+    yearData = getYearData(currentYear);
+  }
   init();
 });
 
+// Cargar años visibles desde settings
+async function loadVisibleYears() {
+  try {
+    const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
+    if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
+      visibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
+    } else {
+      // Default: todos los años si no está configurado
+      visibleYears = getAvailableYears();
+    }
+  } catch(e) {
+    console.warn('No settings found, usando todos los años');
+    visibleYears = getAvailableYears();
+  }
+}
+
+// Inicializar selector de años
+function initializeYearSelector() {
+  const selector = document.getElementById('year-selector');
+  if(!selector) return;
+
+  selector.innerHTML = '';
+  const savedYear = localStorage.getItem('selectedYear');
+
+  visibleYears.forEach(year => {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    if(String(year) === savedYear || (year === visibleYears[0] && !savedYear)) {
+      option.selected = true;
+    }
+    selector.appendChild(option);
+  });
+
+  selector.addEventListener('change', (e) => {
+    currentYear = parseInt(e.target.value);
+    yearData = getYearData(currentYear);
+    // Actualizar arrays de meses y días
+    MN = yearData.monthNames;
+    MNL = yearData.monthNamesES;
+    DAYS = yearData.daysInMonth;
+    localStorage.setItem('selectedYear', currentYear);
+    console.log(`📅 Año seleccionado: ${currentYear}`);
+    loadMonth(curMonth);
+  });
+
+  // Usar el primer año visible
+  if(visibleYears.length > 0) {
+    currentYear = parseInt(savedYear) || visibleYears[0];
+    yearData = getYearData(currentYear);
+  }
+}
+
 async function init() {
+  await loadVisibleYears();
+  initializeYearSelector();
   await loadRoster();
   buildMonthNav();
   await loadMonth(curMonth);
@@ -175,15 +237,19 @@ window.switchMonth = async (mi) => {
 
 async function loadMonth(mi) {
   const mk = MN[mi];
-  document.getElementById('topbar-sub').textContent = `${MNL[mi]} ${YEAR}`;
+  document.getElementById('topbar-sub').textContent = `${MNL[mi]} ${currentYear}`;
   document.getElementById('cal-container').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">Cargando...</div>';
 
   calData = {};
-  const snap = await getDocs(collection(db, 'calendar'));
+  // OPTIMIZACIÓN: Filtrar en Firestore, no en cliente
+  const q = query(
+    collection(db, 'calendar'),
+    where('year', '==', currentYear),
+    where('month', '==', mk)
+  );
+  const snap = await getDocs(q);
   snap.forEach(d => {
-    const data = d.data();
-    // Filtrar por año y mes (formato: {year}-{month}-{id})
-    if(data.year === YEAR && data.month === mk) calData[d.id] = data;
+    calData[d.id] = d.data();
   });
 
   renderCalendar(mi);
@@ -227,7 +293,7 @@ function calcPersonTotal(pid, mi, days) {
   }
   // Fallback: calcular desde Firebase days
   const nDays = DAYS[mi];
-  const fw    = (new Date(YEAR, mi, 1).getDay() + 6) % 7;
+  const fw    = (new Date(currentYear, mi, 1).getDay() + 6) % 7;
   const p     = roster.find(x => x.id === pid);
   if(!p) return 0;
   const hd     = p.hrs ? p.hrs[mi] : 8;
@@ -237,7 +303,7 @@ function calcPersonTotal(pid, mi, days) {
   for(let d = 1; d <= nDays; d++) {
     const wd = (fw + d - 1) % 7;
     if(wd >= 5) continue;
-    const dd = new Date(YEAR, mi, d);
+    const dd = new Date(currentYear, mi, d);
     if(dd < pStart || (pEnd && dd > pEnd)) continue;
     total += calcDayHours(days?.[String(d)], hd);
   }
@@ -247,13 +313,18 @@ function calcPersonTotal(pid, mi, days) {
 function renderCalendar(mi) {
   const mk     = MN[mi];
   const nDays  = DAYS[mi];
-  const mnDate = new Date(YEAR, mi, 1);
+  const mnDate = new Date(currentYear, mi, 1);
   const fw     = (mnDate.getDay() + 6) % 7; // lunes=0
 
   // Filtrar personas activas en este mes
-  const msDate = new Date(YEAR, mi, 1);
-  const meDate = new Date(YEAR, mi, nDays);
+  const msDate = new Date(currentYear, mi, 1);
+  const meDate = new Date(currentYear, mi, nDays);
   const active = roster.filter(p => {
+    // 1. Verificar que tienen datos en Firebase para este año/mes
+    const docId = getCalendarDocId(currentYear, mk, p.id);
+    if(!calData[docId]) return false; // Sin datos = no mostrar
+
+    // 2. Verificar fechas de alta/baja (rango válido)
     const start = new Date(p.start + 'T00:00:00');
     const end   = p.end ? new Date(p.end) : null;
     return start <= meDate && (!end || end >= msDate);
@@ -276,7 +347,7 @@ function renderCalendar(mi) {
     let rows = `<tr class="section-row"><td colspan="${nDays + 4}" style="background:${color}">${label} (${people.length})</td></tr>`;
     people.forEach((p, idx) => {
       const pid  = p.id;
-      const pData= calData[`${mk}-${pid}`] || { days: {} };
+      const pData= calData[getCalendarDocId(currentYear, mk, pid)] || { days: {} };
       // Normalizar a medianoche local para evitar problemas de timezone
       const pStart = new Date(p.start + 'T00:00:00');
       const pEnd   = p.end ? new Date(p.end + 'T23:59:59') : null;
@@ -298,7 +369,7 @@ function renderCalendar(mi) {
 
       for(let d = 1; d <= nDays; d++) {
         const wd      = (fw + d - 1) % 7;
-        const dayDate = new Date(YEAR, mi, d);
+        const dayDate = new Date(currentYear, mi, d);
         const inactive= dayDate < pStart || (pEnd && dayDate > pEnd);
         const val     = pData.days ? pData.days[String(d)] : undefined;
 
@@ -351,7 +422,7 @@ function renderCalendar(mi) {
         const pStart = new Date(p.start + 'T00:00:00');
         const pEnd   = p.end ? new Date(p.end + 'T23:59:59') : null;
         const hd     = p.hrs ? p.hrs[mi] : 8;
-        const dd     = new Date(YEAR, mi, d);
+        const dd     = new Date(currentYear, mi, d);
         if(dd < pStart || (pEnd && dd > pEnd)) return;
         sum += calcDayHours(pData.days?.[String(d)], hd);
       });
@@ -430,7 +501,7 @@ async function saveCell(input) {
   const mk  = MN[curMonth];
   const val = input.value.trim();
 
-  const docId   = `${mk}-${pid}`;
+  const docId   = getCalendarDocId(currentYear, mk, pid);
   const docRef  = doc(db, 'calendar', docId);
   const existing= calData[docId] || { days: {} };
   const days    = { ...(existing.days || {}) };
@@ -494,12 +565,24 @@ window.saveTeam = async (sel) => {
   const pid   = sel.dataset.pid;
   const mk    = sel.dataset.month;
   const team  = sel.value;
-  const docId = `${mk}-${pid}`;
+  const docId = getCalendarDocId(currentYear, mk, pid);
   const docRef = doc(db, 'calendar', docId);
 
   setSaveState('saving');
   try {
-    await setDoc(docRef, { team }, { merge: true });
+    // Leer documento existente para preservar otros campos
+    const { getDoc: getFn } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const snap = await getFn(docRef);
+
+    if(snap.exists()) {
+      // Actualizar preservando todos los campos
+      const data = snap.data();
+      await setDoc(docRef, { ...data, team }, { merge: false });
+    } else {
+      // Si no existe, al menos guardar team
+      await setDoc(docRef, { team }, { merge: true });
+    }
+
     // Actualizar calData en memoria
     if(calData[docId]) calData[docId].team = team;
     setSaveState('saved');
@@ -537,9 +620,9 @@ window.exportExcel = async () => {
     for(let mi = 0; mi < 12; mi++) {
       const mk     = MN[mi];
       const nDays  = DAYS_IN_MONTH[mi];
-      const fw     = (new Date(YEAR, mi, 1).getDay() + 6) % 7; // lunes=0
-      const msDate = new Date(YEAR, mi, 1);
-      const meDate = new Date(YEAR, mi, nDays);
+      const fw     = (new Date(currentYear, mi, 1).getDay() + 6) % 7; // lunes=0
+      const msDate = new Date(currentYear, mi, 1);
+      const meDate = new Date(currentYear, mi, nDays);
 
       // Fila de cabecera: Nombre, Modo, Equipo, Total, 1..nDays
       const header = ['Name', 'Mode', 'Team', 'TOTAL'];
@@ -574,7 +657,7 @@ ${DAY_NAMES_EN[wd]}`);
 
         for(let d = 1; d <= nDays; d++) {
           const wd = (fw + d - 1) % 7;
-          const dd = new Date(YEAR, mi, d, 0, 0, 0, 0);
+          const dd = new Date(currentYear, mi, d, 0, 0, 0, 0);
           const inactive = dd < pStart || (pEnd && dd > pEnd);
 
           if(wd >= 5) {
@@ -645,42 +728,6 @@ function setSaveState(state) {
   el.textContent = state === 'saving' ? '⏳ Guardando...' : state === 'error' ? '❌ Error al guardar' : '✓ Guardado';
 }
 
-// ── Inicializar selector de años (dinámico, multi-año) ──────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  const selector = document.getElementById('year-selector');
-  if(selector) {
-    // Generar opciones de años disponibles
-    const years = getAvailableYears();
-    const currentYear = getCurrentValidYear();
-
-    years.forEach(year => {
-      const option = document.createElement('option');
-      option.value = year;
-      option.textContent = year;
-      if(year === currentYear) option.selected = true;
-      selector.appendChild(option);
-    });
-
-    // Al cambiar año, actualizar datos
-    selector.addEventListener('change', (e) => {
-      const newYear = parseInt(e.target.value);
-      currentYear = newYear;
-      yearData = getYearData(newYear);
-      localStorage.setItem('selectedYear', newYear);
-      console.log(`Año seleccionado: ${newYear}`);
-      // Recargar el mes actual con el nuevo año
-      loadMonth(curMonth);
-    });
-
-    // Restaurar año anterior del localStorage
-    const savedYear = localStorage.getItem('selectedYear');
-    if(savedYear && years.includes(parseInt(savedYear))) {
-      selector.value = savedYear;
-      currentYear = parseInt(savedYear);
-      yearData = getYearData(currentYear);
-    }
-  }
-});
 </script>
 </body>
 </html>
