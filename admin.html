@@ -1030,6 +1030,14 @@ window.copiarDatosAño = async () => {
     errorMsg.style.borderColor = '#FCD34D';
     errorMsg.style.color = '#92400E';
 
+    // Cargar roster para validar fechas de baja
+    const rosterSnap = await getDocs(collection(db, 'roster'));
+    const rosterMap = {};
+    rosterSnap.forEach(doc => {
+      const data = doc.data();
+      rosterMap[data.name] = { start: data.start, end: data.end };
+    });
+
     // Obtener todos los documentos del año origen
     const q = query(collection(db, 'calendar'), where('year', '==', fromYear));
     const snapshot = await getDocs(q);
@@ -1044,6 +1052,7 @@ window.copiarDatosAño = async () => {
     }
 
     let count = 0;
+    let skipped = 0;
     const batch = writeBatch(db);
 
     console.log(`📋 Copiando de ${fromYear} a ${toYear}. Total documentos: ${snapshot.size}`);
@@ -1052,14 +1061,27 @@ window.copiarDatosAño = async () => {
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       const originalDocId = docSnap.id;
+      const name = data.name;
+
+      // Verificar si la persona está activa en el año destino
+      const rosterEntry = rosterMap[name];
+      if(rosterEntry && rosterEntry.end) {
+        const endDate = new Date(rosterEntry.end);
+        if(endDate.getFullYear() < toYear) {
+          console.log(`  ⊘ ${originalDocId}: saltado (baja ${rosterEntry.end})`);
+          skipped++;
+          return;
+        }
+      }
 
       // Extraer personId del docId original (formato: year-month-personId)
       const parts = originalDocId.split('-');
-      const personId = parts.slice(2).join('-'); // Todo después de year-month
+      const personId = parts.slice(2).join('-');
 
       // Crear nuevo docId con el año destino
       const newDocId = `${toYear}-${data.month}-${personId}`;
-      console.log(`  - ${newDocId}:`, { name: data.name, team: data.team, hasDays: !!data.days });
+      console.log(`  ✓ ${newDocId}:`, { name, team: data.team });
+
       // Copiar datos con el nuevo año
       batch.set(doc(db, 'calendar', newDocId), { ...data, year: toYear });
       count++;
@@ -1069,7 +1091,7 @@ window.copiarDatosAño = async () => {
     await batch.commit();
 
     errorMsg.style.display = 'none';
-    successMsg.textContent = `✅ ${count} registros copiados de ${fromYear} a ${toYear}`;
+    successMsg.textContent = `✅ ${count} registros copiados de ${fromYear} a ${toYear}${skipped > 0 ? ` (${skipped} saltados por baja anterior)` : ''}`;
     successMsg.style.display = 'block';
     setTimeout(() => successMsg.style.display = 'none', 4000);
 
