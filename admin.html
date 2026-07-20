@@ -1047,8 +1047,8 @@ window.copiarDatosAño = async () => {
     const batch = writeBatch(db);
 
     // Copiar cada documento
-    snapshot.forEach(doc => {
-      const data = doc.data();
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
       // Crear nuevo docId con el año destino
       const newDocId = `${toYear}-${data.month}-${data.personId}`;
       // Copiar datos con el nuevo año
