@@ -92,13 +92,6 @@ tr:hover td{background:#F9FAFB}
       <div class="topbar-sub">Altas · Bajas · Team Roster</div>
     </div>
   </div>
-  <div style="display:flex;gap:12px;align-items:center">
-    <label style="color:#90CAF9;font-size:12px;display:flex;gap:6px;align-items:center">
-      Año:
-      <select id="year-selector" style="background:#1a2f6e;color:#fff;border:1px solid #90CAF9;padding:5px 8px;border-radius:6px;font-size:12px;cursor:pointer">
-      </select>
-    </label>
-  </div>
 </div>
 
 <div class="content">
@@ -107,6 +100,7 @@ tr:hover td{background:#F9FAFB}
     <button class="tab" onclick="showTab('baja',this)">➖ Baja</button>
     <button class="tab" onclick="showTab('roster',this)">👥 Team Roster</button>
     <button class="tab" onclick="showTab('accesos',this)">🔑 Accesos</button>
+    <button class="tab" onclick="showTab('años',this)">📅 Gestión de Años</button>
   </div>
 
   <!-- ALTA -->
@@ -240,6 +234,46 @@ tr:hover td{background:#F9FAFB}
     </div>
   </div>
 
+  <!-- GESTIÓN DE AÑOS -->
+  <div id="tab-años" class="panel">
+    <!-- Crear nuevo año -->
+    <div class="form-card" style="margin-bottom:1.5rem">
+      <div class="section">Crear nuevo año</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Agrega un nuevo año a la aplicación. Se habilitará automáticamente para usuarios normales y podrán planificar capacidad en ese año.
+      </p>
+      <div class="grid2">
+        <div class="field">
+          <label>Año nuevo *</label>
+          <input type="number" id="new-year-input" placeholder="2036" min="2026" max="2099">
+        </div>
+        <div class="field">
+          <label style="visibility:hidden">.</label>
+          <button class="btn-primary" onclick="crearNuevoAño()" style="width:100%;padding:12px">➕ Crear año</button>
+        </div>
+      </div>
+      <div class="note">ℹ️ El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.</div>
+      <div class="success-msg" id="create-year-success">✅ Año creado correctamente.</div>
+      <div style="background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-top:1rem;display:none;font-size:12px;color:#991B1B" id="create-year-error"></div>
+    </div>
+
+    <!-- Años visibles para usuarios normales -->
+    <div class="form-card">
+      <div class="section">Años visibles para usuarios normales</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Selecciona qué años pueden ver los usuarios normales en Capacity Planner y Dashboard. Los admins siempre ven todos los años.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;margin-bottom:1.5rem" id="años-grid">
+        <!-- Se llenará dinámicamente -->
+      </div>
+      <div class="note">ℹ️ Los cambios afectarán inmediatamente a todos los usuarios normales.</div>
+      <div class="success-msg" id="años-success">✅ Años visibles actualizados correctamente.</div>
+      <div class="actions">
+        <button class="btn-primary" onclick="guardarAñosVisibles()">💾 Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal edición -->
@@ -318,6 +352,9 @@ onAuthStateChanged(auth, user => {
     // Mostrar directamente el roster
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-roster').classList.add('active');
+  } else {
+    // Cargar años visibles solo para admins
+    loadAñosVisibles();
   }
   loadRoster();
 });
@@ -385,7 +422,7 @@ window.confirmarAlta = async () => {
 
   const hrs = Array.from(document.querySelectorAll('.hrs')).map(i => parseInt(i.value)||8);
   const id  = nombre.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  const selectedYear = parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
+  const selectedYear = getCurrentValidYear();
 
   const data = {
     name:     nombre,
@@ -424,7 +461,7 @@ window.confirmarAlta = async () => {
     }
 
     document.getElementById('alta-success').textContent =
-      `✅ Alta registrada correctamente (${selectedYear}). Calendario creado para ${mesesCreados} meses.`;
+      `✅ Alta registrada correctamente. Calendarios creados para ${mesesCreados} meses en todos los años.`;
     document.getElementById('alta-success').style.display = 'block';
     setTimeout(() => document.getElementById('alta-success').style.display = 'none', 4000);
     loadRoster();
@@ -445,7 +482,7 @@ window.confirmarBaja = async () => {
   try {
     // 1. Actualizar roster con fecha de baja
     const person = window._rosterPeople.find(x => x.id === id);
-    const selectedYear = parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
+    const selectedYear = getCurrentValidYear();
 
     await setDoc(doc(db, 'roster', id), { end: fecha, motivo: document.getElementById('b-motivo').value }, { merge: true });
 
@@ -522,118 +559,139 @@ window.copyEmails = () => {
 };
 
 // ── Función auxiliar: generar/actualizar calendario (dinámico, multi-año) ─────────────────────
+// CAMBIO CONCEPTUAL: Crear calendarios para TODOS los años (2026-2035)
+// No solo para el año seleccionado, porque el equipo continúa de año a año
 async function actualizarCalendario(id, nombre, team, mode, start, end, hrs, year = null) {
-  // Usar año seleccionado o dinámico
-  const selectedYear = year || parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
-  const yearData = getYearData(selectedYear);
-  const MN = yearData.monthNames;
-  const daysInMonth = yearData.daysInMonth;
-
   // Parsear como hora local para evitar problemas de timezone
   const startDate = new Date(start + 'T00:00:00');
   const endDate   = end ? new Date(end + 'T23:59:59') : null;
 
+  // Crear calendarios para TODOS los años (2026-2035)
   const promises = [];
-  for(let mi = 0; mi < 12; mi++) {
-    const mk         = MN[mi];
-    const monthStart = new Date(selectedYear, mi, 1);
-    const monthEnd   = new Date(selectedYear, mi, daysInMonth[mi]);
+  const years = getAvailableYears(); // Retorna [2026, 2027, ..., 2035]
 
-    // Persona activa en este mes
-    if(startDate > monthEnd) continue;
-    if(endDate && endDate < monthStart) continue;
+  for(let selectedYear of years) {
+    const yearData = getYearData(selectedYear);
+    const MN = yearData.monthNames;
+    const daysInMonth = yearData.daysInMonth;
 
-    const hd = hrs[mi] || (mode==='Offshore' ? 9 : 8);
-    const fw = (new Date(selectedYear, mi, 1).getDay() + 6) % 7;
-    const days = {};
+    for(let mi = 0; mi < 12; mi++) {
+      const mk         = MN[mi];
+      const monthStart = new Date(selectedYear, mi, 1);
+      const monthEnd   = new Date(selectedYear, mi, daysInMonth[mi]);
 
-    for(let d = 1; d <= daysInMonth[mi]; d++) {
-      const wd = (fw + d - 1) % 7;
-      if(wd >= 5) continue;
-      // Normalizar dd a medianoche para comparación correcta
-      const dd = new Date(selectedYear, mi, d, 0, 0, 0, 0);
-      if(dd < startDate) continue;
-      if(endDate && dd > endDate) continue;
-      days[String(d)] = hd;
-    }
+      // Persona activa en este mes
+      if(startDate > monthEnd) continue;
+      if(endDate && endDate < monthStart) continue;
 
-    const docId = getCalendarDocId(selectedYear, mk, id);
-    // Leer calendario existente para preservar ediciones manuales
-    const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
-      .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
-      .then(snap => snap.exists() ? snap.data() : null);
+      const hd = hrs[mi] || (mode==='Offshore' ? 9 : 8);
+      const fw = (new Date(selectedYear, mi, 1).getDay() + 6) % 7;
+      const days = {};
 
-    if(existing) {
-      // Preservar ediciones manuales — solo añadir días nuevos o quitar días fuera de rango
-      const mergedDays = { ...existing.days };
-      // Quitar días que quedan fuera del nuevo rango
-      Object.keys(mergedDays).forEach(dStr => {
-        const dd = new Date(selectedYear, mi, parseInt(dStr), 0, 0, 0, 0);
-        if(dd < startDate || (endDate && dd > endDate)) delete mergedDays[dStr];
-      });
-      // Añadir días nuevos que no existían
-      Object.entries(days).forEach(([dStr, val]) => {
-        if(mergedDays[dStr] === undefined) mergedDays[dStr] = val;
-      });
-      promises.push(setDoc(doc(db, 'calendar', docId), { ...existing, name: nombre, team, year: selectedYear, month: mk, monthIndex: mi, days: mergedDays }));
-    } else {
-      promises.push(setDoc(doc(db, 'calendar', docId), { name: nombre, team, year: selectedYear, month: mk, monthIndex: mi, days }));
-    }
-  }
+      for(let d = 1; d <= daysInMonth[mi]; d++) {
+        const wd = (fw + d - 1) % 7;
+        if(wd >= 5) continue;
+        // Normalizar dd a medianoche para comparación correcta
+        const dd = new Date(selectedYear, mi, d, 0, 0, 0, 0);
+        if(dd < startDate) continue;
+        if(endDate && dd > endDate) continue;
+        days[String(d)] = hd;
+      }
+
+      const docId = getCalendarDocId(selectedYear, mk, id);
+      // Leer calendario existente para preservar ediciones manuales
+      const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+        .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
+        .then(snap => snap.exists() ? snap.data() : null);
+
+      if(existing) {
+        // Preservar ediciones manuales — solo añadir días nuevos o quitar días fuera de rango
+        const mergedDays = { ...existing.days };
+        // Quitar días que quedan fuera del nuevo rango
+        Object.keys(mergedDays).forEach(dStr => {
+          const dd = new Date(selectedYear, mi, parseInt(dStr), 0, 0, 0, 0);
+          if(dd < startDate || (endDate && dd > endDate)) delete mergedDays[dStr];
+        });
+        // Añadir días nuevos que no existían
+        Object.entries(days).forEach(([dStr, val]) => {
+          if(mergedDays[dStr] === undefined) mergedDays[dStr] = val;
+        });
+        promises.push(setDoc(doc(db, 'calendar', docId), { ...existing, name: nombre, team, year: selectedYear, month: mk, monthIndex: mi, days: mergedDays }));
+      } else {
+        promises.push(setDoc(doc(db, 'calendar', docId), { name: nombre, team, year: selectedYear, month: mk, monthIndex: mi, days }));
+      }
+    } // Cierre del loop de meses
+  } // Cierre del loop de años
   await Promise.all(promises);
   return promises.length;
 }
 
 // ── Función auxiliar: actualizar calendario para baja (dinámico, multi-año) ─────────────────────
+// CAMBIO CONCEPTUAL: Mantener calendarios hasta el año de la baja, eliminar después
 async function actualizarCalendarioBaja(id, nombre, team, fechaBaja, year = null) {
-  const selectedYear = year || parseInt(document.getElementById('year-selector')?.value || getYearData(new Date().getFullYear()).year);
-  const yearData = getYearData(selectedYear);
-  const MN = yearData.monthNames;
-  const daysInMonth = yearData.daysInMonth;
-
   const bajaDate = new Date(fechaBaja + 'T23:59:59');
+  const bajaYear = bajaDate.getFullYear();
 
   let mesesActualizados = 0;
+  const years = getAvailableYears(); // [2026, 2027, ..., 2035]
+  const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+    .then(m => ({ deleteDoc: m.deleteDoc }));
 
-  for(let mi = 0; mi < 12; mi++) {
-    const mk = MN[mi];
-    const docId = getCalendarDocId(selectedYear, mk, id);
-    const monthStart = new Date(selectedYear, mi, 1);
-    const monthEnd = new Date(selectedYear, mi, daysInMonth[mi], 23, 59, 59);
+  for(let selectedYear of years) {
+    const yearData = getYearData(selectedYear);
+    const MN = yearData.monthNames;
+    const daysInMonth = yearData.daysInMonth;
 
-    // Si la baja es antes del inicio del mes, eliminar el documento
-    if(bajaDate < monthStart) {
-      // Borrar documento de este mes y posteriores
-      const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-      await delDoc(doc(db, 'calendar', docId)).catch(() => {});
-      mesesActualizados++;
-      continue;
-    }
-
-    // Si la baja es dentro del mes, actualizar horas a 0 para días posteriores
-    if(bajaDate >= monthStart && bajaDate <= monthEnd) {
-      const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
-        .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
-        .then(snap => snap.exists() ? snap.data() : null);
-
-      if(existing && existing.days) {
-        const updatedDays = { ...existing.days };
-        // Poner horas a 0 para todos los días posteriores a la fecha de baja
-        Object.keys(updatedDays).forEach(dStr => {
-          const dayNum = parseInt(dStr);
-          const dd = new Date(selectedYear, mi, dayNum, 23, 59, 59);
-          if(dd > bajaDate) {
-            updatedDays[dStr] = 0;
-          }
-        });
-        await setDoc(doc(db, 'calendar', docId), { ...existing, days: updatedDays });
+    // Si el año es DESPUÉS de la baja, eliminar TODOS los calendarios de ese año
+    if(selectedYear > bajaYear) {
+      for(let mi = 0; mi < 12; mi++) {
+        const mk = MN[mi];
+        const docId = getCalendarDocId(selectedYear, mk, id);
+        await delDoc(doc(db, 'calendar', docId)).catch(() => {});
         mesesActualizados++;
       }
       continue;
     }
 
-    // Si la baja es después del mes, el mes está activo — no hacer nada
-    mesesActualizados++;
+    // Si el año es IGUAL o ANTERIOR a la baja, procesar normalmente
+    for(let mi = 0; mi < 12; mi++) {
+      const mk = MN[mi];
+      const docId = getCalendarDocId(selectedYear, mk, id);
+      const monthStart = new Date(selectedYear, mi, 1);
+      const monthEnd = new Date(selectedYear, mi, daysInMonth[mi], 23, 59, 59);
+
+      // Si la baja es antes del inicio del mes, eliminar el documento
+      if(bajaDate < monthStart) {
+        await delDoc(doc(db, 'calendar', docId)).catch(() => {});
+        mesesActualizados++;
+        continue;
+      }
+
+      // Si la baja es dentro del mes, actualizar horas a 0 para días posteriores
+      if(bajaDate >= monthStart && bajaDate <= monthEnd) {
+        const existing = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+          .then(m => m.getDoc(m.doc(db, 'calendar', docId)))
+          .then(snap => snap.exists() ? snap.data() : null);
+
+        if(existing && existing.days) {
+          const updatedDays = { ...existing.days };
+          // Poner horas a 0 para todos los días posteriores a la fecha de baja
+          Object.keys(updatedDays).forEach(dStr => {
+            const dayNum = parseInt(dStr);
+            const dd = new Date(selectedYear, mi, dayNum, 23, 59, 59);
+            if(dd > bajaDate) {
+              updatedDays[dStr] = 0;
+            }
+          });
+          await setDoc(doc(db, 'calendar', docId), { ...existing, days: updatedDays });
+          mesesActualizados++;
+        }
+        continue;
+      }
+
+      // Si la baja es después del mes, el mes está activo — no hacer nada
+      mesesActualizados++;
+    }
   }
 
   return mesesActualizados;
@@ -782,39 +840,115 @@ window.showTab = (id, btn) => {
   btn.classList.add('active');
 };
 
-// ── Inicializar selector de años (dinámico, multi-año) ──────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  const selector = document.getElementById('year-selector');
-  if(selector) {
-    // Generar opciones de años disponibles
-    const years = getAvailableYears();
-    const currentYear = getCurrentValidYear();
+// ── Gestión de años visibles ──────────────────────────────────────────
+async function loadAñosVisibles() {
+  try {
+    const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
+    const visibleYears = settingsSnap.exists() ? settingsSnap.data().visibleYears || [] : [];
+    const allYears = getAvailableYears();
 
-    years.forEach(year => {
-      const option = document.createElement('option');
-      option.value = year;
-      option.textContent = year;
-      if(year === currentYear) option.selected = true;
-      selector.appendChild(option);
+    const grid = document.getElementById('años-grid');
+    grid.innerHTML = '';
+
+    allYears.forEach(year => {
+      const isChecked = visibleYears.includes(year);
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '6px';
+      label.style.cursor = 'pointer';
+      label.style.padding = '8px';
+      label.style.borderRadius = '8px';
+      label.style.border = '1px solid var(--border)';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = year;
+      checkbox.checked = isChecked;
+      checkbox.dataset.year = year;
+
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(String(year)));
+      grid.appendChild(label);
     });
+  } catch(e) {
+    console.warn('Error cargando años visibles:', e);
+  }
+}
 
-    // Guardar año seleccionado en localStorage
-    selector.addEventListener('change', (e) => {
-      localStorage.setItem('selectedYear', e.target.value);
-      console.log(`Año seleccionado: ${e.target.value}`);
-      // Opcional: recargar datos del roster para el nuevo año
-    });
+window.guardarAñosVisibles = async () => {
+  const checkboxes = document.querySelectorAll('#años-grid input[type="checkbox"]');
+  const visibleYears = Array.from(checkboxes)
+    .filter(cb => cb.checked)
+    .map(cb => parseInt(cb.value))
+    .sort((a,b) => a-b);
 
-    // Restaurar año anterior del localStorage
-    const savedYear = localStorage.getItem('selectedYear');
-    if(savedYear && years.includes(parseInt(savedYear))) {
-      selector.value = savedYear;
-    }
+  if(visibleYears.length === 0) {
+    alert('Debes seleccionar al menos un año.');
+    return;
   }
 
-  // Cargar roster al iniciar
-  loadRoster();
-});
+  try {
+    await setDoc(doc(db, 'settings', 'years'), { visibleYears }, { merge: true });
+    document.getElementById('años-success').style.display = 'block';
+    setTimeout(() => document.getElementById('años-success').style.display = 'none', 3000);
+  } catch(e) {
+    alert('Error al guardar: ' + e.message);
+  }
+};
+
+// Crear nuevo año
+window.crearNuevoAño = async () => {
+  const yearInput = document.getElementById('new-year-input');
+  const year = parseInt(yearInput.value);
+  const errorMsg = document.getElementById('create-year-error');
+  const successMsg = document.getElementById('create-year-success');
+
+  errorMsg.style.display = 'none';
+  successMsg.style.display = 'none';
+
+  // Validaciones
+  if(!year || year < 2026 || year > 2099) {
+    errorMsg.textContent = '❌ Por favor ingresa un año válido (2026-2099)';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  const allYears = getAvailableYears();
+  if(allYears.includes(year)) {
+    errorMsg.textContent = `❌ El año ${year} ya existe`;
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  try {
+    // Obtener los años visibles actuales
+    const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
+    const visibleYears = settingsSnap.exists() ? (settingsSnap.data().visibleYears || []) : [];
+
+    // Agregar el nuevo año a la lista de visibles
+    const updatedYears = [...visibleYears, year].sort((a,b) => a-b);
+
+    // Guardar en Firestore
+    await setDoc(doc(db, 'settings', 'years'), { visibleYears: updatedYears }, { merge: true });
+
+    // Limpiar input
+    yearInput.value = '';
+
+    // Mostrar éxito
+    successMsg.style.display = 'block';
+    setTimeout(() => successMsg.style.display = 'none', 3000);
+
+    // Recargar la lista de años
+    loadAñosVisibles();
+  } catch(e) {
+    errorMsg.textContent = `❌ Error: ${e.message}`;
+    errorMsg.style.display = 'block';
+  }
+};
+
+// Cargar roster al iniciar
+document.addEventListener('DOMContentLoaded', loadRoster);
 </script>
 </body>
 </html>
