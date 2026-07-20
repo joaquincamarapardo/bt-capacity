@@ -863,7 +863,7 @@ window.crearCuentaUsuario = async () => {
   try {
     // Usar Firebase Admin via REST API para crear/actualizar usuario
     // Como no tenemos backend, usamos el endpoint de signup de Firebase Auth
-    const apiKey = 'AIzaSyBltWXJaPOnbQXd2FdqHvGtqiS_RHrXQLY';
+    const apiKey = 'AIzaSyD412iPDdJ9DfSyfJtiVXK_ndQg2CpOVW0'; // staging API key
 
     // Intentar crear usuario nuevo
     const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
