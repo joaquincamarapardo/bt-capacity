@@ -247,13 +247,14 @@ tr:hover td{background:#F9FAFB}
           <label>Año nuevo *</label>
           <input type="number" id="new-year-input" placeholder="2036" min="2026" max="2099">
         </div>
+        <div class="field">
+          <label style="visibility:hidden">.</label>
+          <button class="btn-primary" onclick="confirmarCrearAño()" style="width:100%;padding:10px">➕ Crear año</button>
+        </div>
       </div>
       <div class="note">ℹ️ El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.</div>
       <div class="success-msg" id="create-year-success">✅ Año creado correctamente.</div>
       <div style="background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-top:1rem;display:none;font-size:12px;color:#991B1B" id="create-year-error"></div>
-      <div class="actions">
-        <button class="btn-primary" onclick="confirmarCrearAño()">➕ Crear año</button>
-      </div>
     </div>
 
     <!-- Copiar datos de año anterior -->
@@ -1136,11 +1137,16 @@ window.closeConfirmModal = () => {
 };
 
 window.executeConfirmAction = async () => {
-  closeConfirmModal();
-  if(confirmAction === 'create-year') {
-    await crearNuevoAño();
-  } else if(confirmAction === 'copy-year') {
-    await copiarDatosAño();
+  const action = confirmAction;
+  console.log('Ejecutando confirmAction:', action);
+  window.closeConfirmModal();
+
+  if(action === 'create-year') {
+    console.log('Llamando crearNuevoAño()');
+    await window.crearNuevoAño();
+  } else if(action === 'copy-year') {
+    console.log('Llamando copiarDatosAño()');
+    await window.copiarDatosAño();
   }
 };
 
