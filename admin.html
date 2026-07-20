@@ -1046,11 +1046,20 @@ window.copiarDatosAño = async () => {
     let count = 0;
     const batch = writeBatch(db);
 
+    console.log(`📋 Copiando de ${fromYear} a ${toYear}. Total documentos: ${snapshot.size}`);
+
     // Copiar cada documento
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
+      const originalDocId = docSnap.id;
+
+      // Extraer personId del docId original (formato: year-month-personId)
+      const parts = originalDocId.split('-');
+      const personId = parts.slice(2).join('-'); // Todo después de year-month
+
       // Crear nuevo docId con el año destino
-      const newDocId = `${toYear}-${data.month}-${data.personId}`;
+      const newDocId = `${toYear}-${data.month}-${personId}`;
+      console.log(`  - ${newDocId}:`, { name: data.name, team: data.team, hasDays: !!data.days });
       // Copiar datos con el nuevo año
       batch.set(doc(db, 'calendar', newDocId), { ...data, year: toYear });
       count++;
