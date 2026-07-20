@@ -113,7 +113,7 @@ tr.total-row td.name-cell{background:#001233;text-align:left}
 </div>
 
 <script type="module">
-import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, collection, getDocs, onSnapshot }
+import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, collection, getDocs, onSnapshot, getValidationMode }
   from './firebase-config.js';
 import { query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -134,6 +134,7 @@ let calData  = {}; // {personId: {days: {d: val}}}
 let saveTimer = null;
 let focusedInput = null;
 let visibleYears = []; // Años visibles para este usuario
+let isValidating = false; // Modo de validación: bloquea cambios de usuarios normales
 
 onAuthStateChanged(auth, user => {
   if(!user) { window.location = 'index.html'; return; }
@@ -164,6 +165,20 @@ async function loadVisibleYears() {
   } catch(e) {
     console.warn('No settings found, usando todos los años');
     visibleYears = getAvailableYears();
+  }
+}
+
+// Cargar estado de validación
+async function loadValidationState() {
+  isValidating = await getValidationMode();
+  const role = sessionStorage.getItem('userRole') || 'user';
+
+  if(isValidating && role !== 'admin') {
+    // Mostrar mensaje de validación
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:#FEF3C7;border-bottom:1px solid #FCD34D;padding:12px;text-align:center;font-size:13px;color:#92400E;font-weight:500';
+    banner.textContent = '⏳ Sistema en validación. Admin está verificando datos. No es posible hacer cambios en este momento.';
+    document.body.insertBefore(banner, document.body.firstChild);
   }
 }
 
@@ -210,6 +225,7 @@ async function init() {
   await loadRoster();
   buildMonthNav();
   await loadMonth(curMonth);
+  await loadValidationState();
 }
 
 async function loadRoster() {

@@ -100,6 +100,7 @@ tr:hover td{background:#F9FAFB}
     <button class="tab" onclick="showTab('baja',this)">➖ Baja</button>
     <button class="tab" onclick="showTab('roster',this)">👥 Team Roster</button>
     <button class="tab" onclick="showTab('accesos',this)">🔑 Accesos</button>
+    <button class="tab" onclick="showTab('validacion',this)">✓ Validación</button>
     <button class="tab" onclick="showTab('años',this)">📅 Gestión de Años</button>
   </div>
 
@@ -231,6 +232,25 @@ tr:hover td{background:#F9FAFB}
       <div class="actions">
         <button class="btn-primary" onclick="crearCuentaUsuario()">🔑 Crear / Restablecer contraseña</button>
       </div>
+    </div>
+  </div>
+
+  <!-- VALIDACIÓN DE DATOS -->
+  <div id="tab-validacion" class="panel">
+    <div class="form-card">
+      <div class="section">Modo de validación</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Activa el modo de validación para prevenir que usuarios normales hagan cambios mientras verificas que los datos migraron correctamente.
+      </p>
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="validation-toggle" onchange="toggleValidationMode()"><span class="slider"></span></label>
+        <div class="toggle-info">
+          <strong id="validation-status">Validación desactivada</strong>
+          <span id="validation-subtitle">Los usuarios pueden editar normalmente</span>
+        </div>
+      </div>
+      <div class="note note-warn" id="validation-note" style="display:none">⚠️ El modo de validación está ACTIVO. Los usuarios normales no pueden hacer cambios.</div>
+      <div class="success-msg" id="validation-success">✅ Modo de validación actualizado.</div>
     </div>
   </div>
 
@@ -1172,8 +1192,67 @@ window.confirmarCopiarAño = () => {
   showConfirmModal('copy-year', `¿Copiar ${fromYear} a ${toYear}?`, `Se copiarán todos los datos del año ${fromYear} al ${toYear}. Los datos existentes serán sobrescritos.`, '📋 Copiar');
 };
 
-// Cargar roster al iniciar
-document.addEventListener('DOMContentLoaded', loadRoster);
+// ── Modo de validación ────────────────────────────────────────────────
+async function loadValidationMode() {
+  try {
+    const settingsSnap = await getDoc(doc(db, 'settings', 'validation'));
+    const isValidating = settingsSnap.exists() ? settingsSnap.data().isValidating : false;
+
+    const toggle = document.getElementById('validation-toggle');
+    const status = document.getElementById('validation-status');
+    const subtitle = document.getElementById('validation-subtitle');
+    const note = document.getElementById('validation-note');
+
+    toggle.checked = isValidating;
+
+    if(isValidating) {
+      status.textContent = 'Validación ACTIVA';
+      subtitle.textContent = 'Los usuarios normales no pueden hacer cambios';
+      note.style.display = 'block';
+    } else {
+      status.textContent = 'Validación desactivada';
+      subtitle.textContent = 'Los usuarios pueden editar normalmente';
+      note.style.display = 'none';
+    }
+  } catch(e) {
+    console.warn('Error cargando modo validación:', e);
+  }
+}
+
+window.toggleValidationMode = async () => {
+  const toggle = document.getElementById('validation-toggle');
+  const isValidating = toggle.checked;
+
+  try {
+    await setDoc(doc(db, 'settings', 'validation'), { isValidating }, { merge: true });
+
+    const status = document.getElementById('validation-status');
+    const subtitle = document.getElementById('validation-subtitle');
+    const note = document.getElementById('validation-note');
+    const success = document.getElementById('validation-success');
+
+    if(isValidating) {
+      status.textContent = 'Validación ACTIVA';
+      subtitle.textContent = 'Los usuarios normales no pueden hacer cambios';
+      note.style.display = 'block';
+    } else {
+      status.textContent = 'Validación desactivada';
+      subtitle.textContent = 'Los usuarios pueden editar normalmente';
+      note.style.display = 'none';
+    }
+
+    success.style.display = 'block';
+    setTimeout(() => success.style.display = 'none', 3000);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+};
+
+// Cargar roster y validación al iniciar
+document.addEventListener('DOMContentLoaded', () => {
+  loadRoster();
+  loadValidationMode();
+});
 </script>
 </body>
 </html>

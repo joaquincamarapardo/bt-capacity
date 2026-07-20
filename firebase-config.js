@@ -21,5 +21,16 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+// Función para verificar modo de validación
+export async function getValidationMode() {
+  try {
+    const validationDoc = await getDoc(doc(db, 'settings', 'validation'));
+    return validationDoc.exists() ? validationDoc.data().isValidating : false;
+  } catch(e) {
+    console.warn('Error leyendo modo validación:', e);
+    return false;
+  }
+}
+
 export { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged,
          doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where };
