@@ -126,7 +126,7 @@ tfoot td{background:var(--navy)!important;color:#fff;font-weight:600;border-bott
 </div>
 
 <script type="module">
-import { auth, db, onAuthStateChanged, collection, getDocs }
+import { auth, db, onAuthStateChanged, collection, getDocs, getValidationMode }
   from './firebase-config.js';
 import { query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -945,7 +945,23 @@ window.T=(id,btn)=>{
   if(id==='teammode') renderTeamMode();
 };
 function showLoading(msg){ document.getElementById('loading').style.display='flex'; document.getElementById('content').style.display='none'; document.getElementById('loading-txt').textContent=msg||'Cargando...'; }
-function hideLoading(){ document.getElementById('loading').style.display='none'; document.getElementById('content').style.display='block'; }
+async function hideLoading(){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('content').style.display='block';
+
+  // Mostrar banner de validación si está activo
+  const isValidating = await getValidationMode();
+  if(isValidating) {
+    const existing = document.getElementById('validation-banner');
+    if(!existing) {
+      const banner = document.createElement('div');
+      banner.id = 'validation-banner';
+      banner.style.cssText = 'background:#FEF3C7;border-bottom:2px solid #FCD34D;padding:12px;text-align:center;font-size:13px;color:#92400E;font-weight:500;margin-bottom:1rem';
+      banner.textContent = '⏳ Sistema en validación. Admin está verificando datos.';
+      document.getElementById('content').insertBefore(banner, document.getElementById('content').firstChild);
+    }
+  }
+}
 function setLoadingTxt(t){ document.getElementById('loading-txt').textContent=t; }
 
 </script>
