@@ -255,6 +255,9 @@ tr:hover td{background:#F9FAFB}
       <div class="note">ℹ️ El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.</div>
       <div class="success-msg" id="create-year-success">✅ Año creado correctamente.</div>
       <div style="background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-top:1rem;display:none;font-size:12px;color:#991B1B" id="create-year-error"></div>
+      <div class="actions">
+        <button class="btn-primary" onclick="confirmarCrearAño()">➕ Crear año</button>
+      </div>
     </div>
 
     <!-- Copiar datos de año anterior -->
@@ -277,7 +280,7 @@ tr:hover td{background:#F9FAFB}
       <div class="success-msg" id="copy-year-success">✅ Datos copiados correctamente.</div>
       <div style="background:#FFF5F5;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-top:1rem;display:none;font-size:12px;color:#991B1B" id="copy-year-error"></div>
       <div class="actions">
-        <button class="btn-primary" onclick="copiarDatosAño()">📋 Copiar año</button>
+        <button class="btn-primary" onclick="confirmarCopiarAño()">📋 Copiar año</button>
       </div>
     </div>
 
@@ -351,6 +354,21 @@ tr:hover td{background:#F9FAFB}
     <div class="actions">
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="guardarEdicion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmación genérico -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3 id="confirm-title">Confirmar</h3>
+      <button class="modal-close" onclick="closeConfirmModal()">✕</button>
+    </div>
+    <p id="confirm-message" style="font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6"></p>
+    <div class="actions">
+      <button class="btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
+      <button class="btn-primary" id="confirm-btn" onclick="executeConfirmAction()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -1019,10 +1037,6 @@ window.copiarDatosAño = async () => {
     return;
   }
 
-  if(!confirm(`¿Copiar todos los datos de ${fromYear} a ${toYear}? Los datos existentes en ${toYear} serán sobrescritos.`)) {
-    return;
-  }
-
   try {
     errorMsg.textContent = '⏳ Copiando datos...';
     errorMsg.style.display = 'block';
@@ -1105,6 +1119,52 @@ window.copiarDatosAño = async () => {
     errorMsg.style.color = '#991B1B';
     errorMsg.style.display = 'block';
   }
+};
+
+// ── Modal de confirmación ──────────────────────────────────────────────
+let confirmAction = null;
+
+window.showConfirmModal = (action, title, message, btnText = 'Confirmar') => {
+  confirmAction = action;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  document.getElementById('confirm-btn').textContent = btnText;
+  document.getElementById('confirm-overlay').classList.add('open');
+};
+
+window.closeConfirmModal = () => {
+  confirmAction = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+};
+
+window.executeConfirmAction = async () => {
+  closeConfirmModal();
+  if(confirmAction === 'create-year') {
+    await crearNuevoAño();
+  } else if(confirmAction === 'copy-year') {
+    await copiarDatosAño();
+  }
+};
+
+// Wrapper para crear año con confirmación
+window.confirmarCrearAño = () => {
+  const year = document.getElementById('new-year-input').value;
+  if(!year) {
+    alert('Por favor ingresa un año');
+    return;
+  }
+  showConfirmModal('create-year', `¿Crear el año ${year}?`, 'El nuevo año estará disponible inmediatamente en Capacity Planner y Dashboard.', '➕ Crear');
+};
+
+// Wrapper para copiar año con confirmación
+window.confirmarCopiarAño = () => {
+  const fromYear = document.getElementById('copy-from-year').value;
+  const toYear = document.getElementById('copy-to-year').value;
+  if(!fromYear || !toYear) {
+    alert('Selecciona ambos años');
+    return;
+  }
+  showConfirmModal('copy-year', `¿Copiar ${fromYear} a ${toYear}?`, `Se copiarán todos los datos del año ${fromYear} al ${toYear}. Los datos existentes serán sobrescritos.`, '📋 Copiar');
 };
 
 // Cargar roster al iniciar
