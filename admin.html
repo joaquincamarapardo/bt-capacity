@@ -100,8 +100,8 @@ tr:hover td{background:#F9FAFB}
     <button class="tab" onclick="showTab('baja',this)">➖ Baja</button>
     <button class="tab" onclick="showTab('roster',this)">👥 Team Roster</button>
     <button class="tab" onclick="showTab('accesos',this)">🔑 Accesos</button>
-    <button class="tab" onclick="showTab('validacion',this)">✓ Validación</button>
-    <button class="tab" onclick="showTab('años',this)">📅 Gestión de Años</button>
+    <button class="tab admin-only" style="display:none" onclick="showTab('validacion',this)">✓ Validación</button>
+    <button class="tab admin-only" style="display:none" onclick="showTab('años',this)">📅 Gestión de Años</button>
   </div>
 
   <!-- ALTA -->
@@ -412,6 +412,10 @@ onAuthStateChanged(auth, user => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-roster').classList.add('active');
   } else {
+    // Admin: mostrar pestañas admin-only
+    document.querySelectorAll('.admin-only').forEach(t => {
+      t.style.display = 'block';
+    });
     // Cargar años visibles solo para admins
     loadAñosVisibles();
   }
