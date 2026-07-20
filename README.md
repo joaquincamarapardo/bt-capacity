@@ -1,4 +1,4 @@
-# BT Team Capacity — Aplicación web 2026
+# BT Team Capacity — Aplicación web
 
 Aplicación web completa para la gestión y visualización de la capacidad del equipo BT de DXC Technology.
 
