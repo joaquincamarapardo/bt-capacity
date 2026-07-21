@@ -1061,7 +1061,7 @@ async function enviarEmailBienvenida(email, username, password, name) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      sender: { email: 'noreply@btcapacity.app', name: 'BT Capacity' },
+      sender: { email: 'joaquin.camara@dxc.com', name: 'BT Capacity' },
       to: [{ email: email, name: name }],
       subject: '🎯 Bienvenido a BT Capacity Planner',
       htmlContent: htmlContent
