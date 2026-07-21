@@ -1142,12 +1142,19 @@ window.copiarDatosAño = async () => {
 
     // Para cada persona en el roster
     for(const person of window._rosterPeople || []) {
-      const pStart = new Date(person.start + 'T00:00:00');
-      const pEnd = person.end ? new Date(person.end + 'T23:59:59') : null;
+      // Parsear fechas como YYYY-MM-DD strings para evitar problemas de zona horaria
+      const [startY, startM, startD] = person.start.split('-').map(Number);
+      const pStart = new Date(startY, startM - 1, startD);
+
+      let pEnd = null;
+      if(person.end) {
+        const [endY, endM, endD] = person.end.split('-').map(Number);
+        pEnd = new Date(endY, endM - 1, endD);
+      }
 
       // Verificar si está activa en el año destino
       const toYearStart = new Date(toYear, 0, 1);
-      const toYearEnd = new Date(toYear, 11, 31, 23, 59, 59);
+      const toYearEnd = new Date(toYear, 11, 31);
 
       if(pStart > toYearEnd || (pEnd && pEnd < toYearStart)) {
         continue; // No está activa en este año
@@ -1160,7 +1167,7 @@ window.copiarDatosAño = async () => {
         if(isLeapYear(toYear)) daysInMonth[1] = 29;
 
         const monthStart = new Date(toYear, mi, 1);
-        const monthEnd = new Date(toYear, mi, daysInMonth[mi], 23, 59, 59);
+        const monthEnd = new Date(toYear, mi, daysInMonth[mi]);
 
         // Si la persona no está activa en este mes, saltar
         if(pStart > monthEnd || (pEnd && pEnd < monthStart)) continue;
