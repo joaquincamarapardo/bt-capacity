@@ -165,21 +165,29 @@ onAuthStateChanged(auth, user => {
 
 // Cargar años visibles desde settings
 async function loadVisibleYears() {
-  try {
-    // Escuchar cambios en tiempo real en settings/years
-    onSnapshot(doc(db, 'settings', 'years'), (settingsSnap) => {
-      if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
-        const newVisibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
-        // Si cambiaron los años visibles, actualizar selector
-        if(JSON.stringify(newVisibleYears) !== JSON.stringify(visibleYears)) {
-          visibleYears = newVisibleYears;
-          initializeYearSelector();
+  return new Promise((resolve) => {
+    try {
+      let firstLoad = true;
+      // Escuchar cambios en tiempo real en settings/years
+      onSnapshot(doc(db, 'settings', 'years'), (settingsSnap) => {
+        if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
+          const newVisibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
+          // Si cambiaron los años visibles, actualizar selector
+          if(JSON.stringify(newVisibleYears) !== JSON.stringify(visibleYears)) {
+            visibleYears = newVisibleYears;
+            if(!firstLoad) initializeYearSelector();
+          }
         }
-      }
-    });
-  } catch(e) {
-    visibleYears = getAvailableYears();
-  }
+        if(firstLoad) {
+          firstLoad = false;
+          resolve();
+        }
+      });
+    } catch(e) {
+      visibleYears = getAvailableYears();
+      resolve();
+    }
+  });
 }
 
 // Cargar estado de validación
