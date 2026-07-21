@@ -391,7 +391,7 @@ tr:hover td{background:#F9FAFB}
 </div>
 
 <script type="module">
-import { auth, db, onAuthStateChanged, collection, getDocs, doc, setDoc, getDoc, onSnapshot, writeBatch, query, where }
+import { auth, db, onAuthStateChanged, collection, getDocs, doc, setDoc, getDoc, onSnapshot, writeBatch, query, where, getFunctions, httpsCallable }
   from './firebase-config.js';
 
 const MNS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -865,6 +865,10 @@ window.crearCuentaUsuario = async () => {
   if(!pass || pass.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
 
   try {
+    // Obtener datos de la persona desde el roster
+    const person = people.find(p => p.email === email);
+    if(!person) { alert('Persona no encontrada en el roster.'); return; }
+
     // Usar Firebase Admin via REST API para crear/actualizar usuario
     // Como no tenemos backend, usamos el endpoint de signup de Firebase Auth
     const apiKey = 'AIzaSyBltWXJaPOnbQXd2FdqHvGtqiS_RHrXQLY'; // production API key
@@ -888,8 +892,23 @@ window.crearCuentaUsuario = async () => {
         throw new Error(data.error.message);
       }
     } else {
-      document.getElementById('acc-success').textContent =
-        `✅ Cuenta creada para ${email}. Contraseña temporal: ${pass}`;
+      // Cuenta nueva creada - enviar email de bienvenida
+      try {
+        const sendWelcomeEmail = httpsCallable(getFunctions(), 'sendWelcomeEmail');
+        await sendWelcomeEmail({
+          email: person.email,
+          username: person.username || person.id,
+          password: pass,
+          name: person.name
+        });
+        document.getElementById('acc-success').textContent =
+          `✅ Cuenta creada para ${person.email}. Email de bienvenida enviado con credenciales.`;
+      } catch(emailError) {
+        // Si el email falla, aún así mostrar que la cuenta se creó
+        console.error('Error al enviar email:', emailError);
+        document.getElementById('acc-success').textContent =
+          `✅ Cuenta creada para ${email}. (Nota: No se pudo enviar email de bienvenida. Contraseña: ${pass})`;
+      }
     }
     document.getElementById('acc-success').style.display = 'block';
     setTimeout(() => document.getElementById('acc-success').style.display = 'none', 5000);
