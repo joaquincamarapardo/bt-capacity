@@ -1125,8 +1125,79 @@ window.copiarDatosAño = async () => {
     // Ejecutar batch
     await batch.commit();
 
+    // Paso 2: Crear calendarios para personas que NO tienen en el año destino
+    // pero sí están activas (se incorporaron después del año origen)
+    console.log(`\n📝 Creando calendarios para personas nuevas en ${toYear}...`);
+
+    let newCount = 0;
+    const batch2 = writeBatch(db);
+
+    for(const person of window._rosterPeople || []) {
+      const pStart = new Date(person.start + 'T00:00:00');
+      const pEnd = person.end ? new Date(person.end + 'T23:59:59') : null;
+
+      // Verificar si está activa en el año destino
+      const toYearStart = new Date(toYear, 0, 1);
+      const toYearEnd = new Date(toYear, 11, 31);
+
+      if(pStart > toYearEnd || (pEnd && pEnd < toYearStart)) {
+        continue; // No está activa en este año
+      }
+
+      // Verificar si YA tiene calendarios en el año destino
+      const alreadyHas = snapshot.docs.some(doc => {
+        const parts = doc.id.split('-');
+        const personId = parts.slice(2).join('-');
+        return personId === person.id;
+      });
+
+      if(alreadyHas) continue; // Ya tiene calendarios, no crear
+
+      // Crear calendarios para todos los meses del año destino
+      for(let mi = 0; mi < 12; mi++) {
+        const mk = MN[mi];
+        const daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
+        if(isLeapYear(toYear)) daysInMonth[1] = 29;
+
+        const monthStart = new Date(toYear, mi, 1);
+        const monthEnd = new Date(toYear, mi, daysInMonth[mi]);
+
+        // Si la persona no está activa en este mes, saltar
+        if(pStart > monthEnd || (pEnd && pEnd < monthStart)) continue;
+
+        const hd = person.hrs ? person.hrs[mi] : (person.mode === 'Offshore' ? 9 : 8);
+        const fw = (new Date(toYear, mi, 1).getDay() + 6) % 7;
+        const days = {};
+
+        for(let d = 1; d <= daysInMonth[mi]; d++) {
+          const wd = (fw + d - 1) % 7;
+          if(wd >= 5) continue; // Fin de semana
+
+          const dd = new Date(toYear, mi, d, 0, 0, 0, 0);
+          if(dd < pStart || (pEnd && dd > pEnd)) continue;
+
+          days[String(d)] = hd;
+        }
+
+        const docId = getCalendarDocId(toYear, mk, person.id);
+        batch2.set(doc(db, 'calendar', docId), {
+          name: person.name,
+          team: person.team || 'BT',
+          year: toYear,
+          month: mk,
+          monthIndex: mi,
+          days
+        });
+        newCount++;
+      }
+    }
+
+    if(newCount > 0) {
+      await batch2.commit();
+    }
+
     errorMsg.style.display = 'none';
-    successMsg.textContent = `✅ ${count} registros copiados de ${fromYear} a ${toYear}${skipped > 0 ? ` (${skipped} saltados por baja anterior)` : ''}`;
+    successMsg.textContent = `✅ ${count} registros copiados${newCount > 0 ? ` + ${newCount} nuevos` : ''} de ${fromYear} a ${toYear}${skipped > 0 ? ` (${skipped} saltados por baja anterior)` : ''}`;
     successMsg.style.display = 'block';
     setTimeout(() => successMsg.style.display = 'none', 4000);
 
