@@ -444,6 +444,11 @@ onAuthStateChanged(auth, user => {
     document.getElementById('tab-roster').classList.add('active');
   } else {
     // ADMINS: Mostrar todas las pestañas y paneles
+    // Mostrar la primera pestaña (Alta) por defecto
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-alta').classList.add('active');
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelector('.tab').classList.add('active');
     // Cargar años visibles solo para admins
     loadAñosVisibles();
   }
