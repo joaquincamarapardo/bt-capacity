@@ -1125,42 +1125,44 @@ window.copiarDatosAño = async () => {
     // Ejecutar batch
     await batch.commit();
 
-    // Paso 2: Crear calendarios para personas que NO tienen en el año destino
-    // pero sí están activas (se incorporaron después del año origen)
+    // Paso 2: Crear calendarios para personas que NO tenían en el año ORIGEN
+    // pero sí están activas en el año DESTINO (se incorporaron después)
     console.log(`\n📝 Creando calendarios para personas nuevas en ${toYear}...`);
 
     let newCount = 0;
     const batch2 = writeBatch(db);
 
+    // Extraer person IDs que ya fueron copiados
+    const copiedPersonIds = new Set();
+    snapshot.docs.forEach(doc => {
+      const parts = doc.id.split('-');
+      const personId = parts.slice(2).join('-');
+      copiedPersonIds.add(personId);
+    });
+
     for(const person of window._rosterPeople || []) {
+      // Si ya fue copiada, saltar
+      if(copiedPersonIds.has(person.id)) continue;
+
       const pStart = new Date(person.start + 'T00:00:00');
       const pEnd = person.end ? new Date(person.end + 'T23:59:59') : null;
 
       // Verificar si está activa en el año destino
       const toYearStart = new Date(toYear, 0, 1);
-      const toYearEnd = new Date(toYear, 11, 31);
+      const toYearEnd = new Date(toYear, 11, 31, 23, 59, 59);
 
       if(pStart > toYearEnd || (pEnd && pEnd < toYearStart)) {
         continue; // No está activa en este año
       }
 
-      // Verificar si YA tiene calendarios en el año destino
-      const alreadyHas = snapshot.docs.some(doc => {
-        const parts = doc.id.split('-');
-        const personId = parts.slice(2).join('-');
-        return personId === person.id;
-      });
-
-      if(alreadyHas) continue; // Ya tiene calendarios, no crear
-
-      // Crear calendarios para todos los meses del año destino
+      // Crear calendarios SOLO para meses donde está activa en el año destino
       for(let mi = 0; mi < 12; mi++) {
         const mk = MN[mi];
         const daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
         if(isLeapYear(toYear)) daysInMonth[1] = 29;
 
         const monthStart = new Date(toYear, mi, 1);
-        const monthEnd = new Date(toYear, mi, daysInMonth[mi]);
+        const monthEnd = new Date(toYear, mi, daysInMonth[mi], 23, 59, 59);
 
         // Si la persona no está activa en este mes, saltar
         if(pStart > monthEnd || (pEnd && pEnd < monthStart)) continue;
