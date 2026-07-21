@@ -922,12 +922,14 @@ window.crearCuentaUsuario = async () => {
     // En ambos casos: enviar email de bienvenida desde Brevo
     if(accountCreated) {
       try {
+        console.log('🚀 Intentando enviar email a:', person.email);
         await enviarEmailBienvenida(person.email, person.username || person.id, pass, person.name);
+        console.log('✅ Email enviado exitosamente');
         const msgType = data.error?.message === 'EMAIL_EXISTS' ? 'actualizada' : 'creada';
         document.getElementById('acc-success').textContent =
           `✅ Cuenta ${msgType} para ${person.email}. Email enviado con credenciales.`;
       } catch(emailError) {
-        console.error('Error al enviar email:', emailError);
+        console.error('❌ Error al enviar email:', emailError);
         const msgType = data.error?.message === 'EMAIL_EXISTS' ? 'actualizada' : 'creada';
         document.getElementById('acc-success').textContent =
           `✅ Cuenta ${msgType} para ${email}. (Contraseña temporal: ${pass})`;
@@ -980,7 +982,9 @@ window.verificarBrevoKey = async () => {
 
 // Enviar email de bienvenida con Brevo
 async function enviarEmailBienvenida(email, username, password, name) {
+  console.log('📧 enviarEmailBienvenida llamada con:', { email, username, name });
   const brevoApiKey = localStorage.getItem('brevoApiKey');
+  console.log('🔑 API Key disponible:', !!brevoApiKey);
   if(!brevoApiKey) {
     throw new Error('Configura tu API Key de Brevo en admin → Configuración → Brevo');
   }
@@ -1049,6 +1053,7 @@ async function enviarEmailBienvenida(email, username, password, name) {
 </html>
   `;
 
+  console.log('📤 Enviando request a Brevo...');
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -1063,10 +1068,13 @@ async function enviarEmailBienvenida(email, username, password, name) {
     })
   });
 
+  console.log('📥 Respuesta Brevo:', response.status);
   if(!response.ok) {
     const error = await response.json();
+    console.error('❌ Error Brevo:', error);
     throw new Error('Error Brevo: ' + (error.message || response.statusText));
   }
+  console.log('✅ Email enviado por Brevo');
 }
 
 window.showTab = (id, btn) => {
