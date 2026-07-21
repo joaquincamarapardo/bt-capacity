@@ -166,15 +166,18 @@ onAuthStateChanged(auth, user => {
 // Cargar años visibles desde settings
 async function loadVisibleYears() {
   try {
-    const settingsSnap = await getDoc(doc(db, 'settings', 'years'));
-    if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
-      visibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
-    } else {
-      // Default: todos los años si no está configurado
-      visibleYears = getAvailableYears();
-    }
+    // Escuchar cambios en tiempo real en settings/years
+    onSnapshot(doc(db, 'settings', 'years'), (settingsSnap) => {
+      if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
+        const newVisibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
+        // Si cambiaron los años visibles, actualizar selector
+        if(JSON.stringify(newVisibleYears) !== JSON.stringify(visibleYears)) {
+          visibleYears = newVisibleYears;
+          initializeYearSelector();
+        }
+      }
+    });
   } catch(e) {
-    console.warn('No settings found, usando todos los años');
     visibleYears = getAvailableYears();
   }
 }
