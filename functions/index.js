@@ -4,10 +4,17 @@ const sgMail = require('@sendgrid/mail');
 
 admin.initializeApp();
 
-// Configurar SendGrid con clave API desde variables de entorno
-const sendgridApiKey = process.env.SENDGRID_API_KEY;
-if (sendgridApiKey) {
-  sgMail.setApiKey(sendgridApiKey);
+// Configurar SendGrid con clave API desde params
+const { defineString } = require('firebase-functions/params');
+
+const sendgridApiKey = defineString('SENDGRID_API_KEY');
+
+// Configurar SendGrid cuando se use la función
+function ensureSendgridConfigured() {
+  if (!sendgridApiKey.value()) {
+    throw new Error('SENDGRID_API_KEY no está configurada');
+  }
+  sgMail.setApiKey(sendgridApiKey.value());
 }
 
 /**
@@ -45,14 +52,10 @@ exports.sendWelcomeEmail = functions.https.onCall(async (data, context) => {
     );
   }
 
-  if (!sendgridApiKey) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'SendGrid no está configurado. Contacta al administrador.'
-    );
-  }
-
   try {
+    // Configurar SendGrid
+    ensureSendgridConfigured();
+
     const msg = {
       to: email,
       from: 'noreply@btcapacity.app',

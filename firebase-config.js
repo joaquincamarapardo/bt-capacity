@@ -4,8 +4,6 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getFunctions, httpsCallable }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 // ✅ PRODUCTION CONFIGURATION - Multi-year app
 const firebaseConfig = {
@@ -34,5 +32,4 @@ export async function getValidationMode() {
 }
 
 export { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged,
-         doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where,
-         getFunctions, httpsCallable };
+         doc, setDoc, getDoc, collection, getDocs, onSnapshot, writeBatch, query, where };
