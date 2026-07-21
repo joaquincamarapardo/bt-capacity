@@ -1161,8 +1161,9 @@ window.copiarDatosAño = async () => {
       }
 
       // Para cada mes del año destino
+      const MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       for(let mi = 0; mi < 12; mi++) {
-        const mk = MN[mi];
+        const mk = MONTHS_EN[mi];
         const daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
         if(isLeapYear(toYear)) daysInMonth[1] = 29;
 
