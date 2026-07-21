@@ -890,7 +890,8 @@ window.crearCuentaUsuario = async () => {
 
   try {
     // Obtener datos de la persona desde el roster
-    const person = people.find(p => p.email === email);
+    const rosterPeople = window._rosterPeople || [];
+    const person = rosterPeople.find(p => p.email === email);
     if(!person) { alert('Persona no encontrada en el roster.'); return; }
 
     // Usar Firebase Admin via REST API para crear/actualizar usuario
