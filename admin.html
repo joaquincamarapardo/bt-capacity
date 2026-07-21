@@ -102,6 +102,7 @@ tr:hover td{background:#F9FAFB}
     <button class="tab" onclick="showTab('baja',this)">➖ Baja</button>
     <button class="tab" onclick="showTab('roster',this)">👥 Team Roster</button>
     <button class="tab" onclick="showTab('accesos',this)">🔑 Accesos</button>
+    <button class="tab admin-only" style="display:none" onclick="showTab('configuracion',this)">⚙️ Configuración</button>
     <button class="tab admin-only" style="display:none" onclick="showTab('validacion',this)">✓ Validación</button>
     <button class="tab admin-only" style="display:none" onclick="showTab('años',this)">📅 Gestión de Años</button>
   </div>
@@ -237,24 +238,8 @@ tr:hover td{background:#F9FAFB}
     </div>
   </div>
 
-  <!-- VALIDACIÓN DE DATOS -->
-  <div id="tab-validacion" class="panel">
-    <div class="form-card">
-      <div class="section">Modo de validación</div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
-        Activa el modo de validación para prevenir que usuarios normales hagan cambios mientras verificas que los datos migraron correctamente.
-      </p>
-      <div class="toggle-row">
-        <label class="toggle"><input type="checkbox" id="validation-toggle" onchange="toggleValidationMode()"><span class="slider"></span></label>
-        <div class="toggle-info">
-          <strong id="validation-status">Validación desactivada</strong>
-          <span id="validation-subtitle">Los usuarios pueden editar normalmente</span>
-        </div>
-      </div>
-      <div class="note note-warn" id="validation-note" style="display:none">⚠️ El modo de validación está ACTIVO. Los usuarios normales no pueden hacer cambios.</div>
-      <div class="success-msg" id="validation-success">✅ Modo de validación actualizado.</div>
-    </div>
-
+  <!-- CONFIGURACIÓN -->
+  <div id="tab-configuracion" class="panel">
     <!-- Configuración Brevo para emails -->
     <div class="form-card">
       <div class="section">⚙️ Configuración de Emails (Brevo)</div>
@@ -271,6 +256,25 @@ tr:hover td{background:#F9FAFB}
         <button class="btn-secondary" onclick="verificarBrevoKey()">✓ Verificar Conexión</button>
       </div>
       <div class="success-msg" id="brevo-success">✅ API Key guardada correctamente.</div>
+    </div>
+  </div>
+
+  <!-- VALIDACIÓN DE DATOS -->
+  <div id="tab-validacion" class="panel">
+    <div class="form-card">
+      <div class="section">Modo de validación</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Activa el modo de validación para prevenir que usuarios normales hagan cambios mientras verificas que los datos migraron correctamente.
+      </p>
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="validation-toggle" onchange="toggleValidationMode()"><span class="slider"></span></label>
+        <div class="toggle-info">
+          <strong id="validation-status">Validación desactivada</strong>
+          <span id="validation-subtitle">Los usuarios pueden editar normalmente</span>
+        </div>
+      </div>
+      <div class="note note-warn" id="validation-note" style="display:none">⚠️ El modo de validación está ACTIVO. Los usuarios normales no pueden hacer cambios.</div>
+      <div class="success-msg" id="validation-success">✅ Modo de validación actualizado.</div>
     </div>
   </div>
 
