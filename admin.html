@@ -905,28 +905,32 @@ window.crearCuentaUsuario = async () => {
       body: JSON.stringify({ email, password: pass, returnSecureToken: false })
     });
     const data = await resp.json();
+    let accountCreated = false;
 
     if(data.error) {
       if(data.error.message === 'EMAIL_EXISTS') {
-        // Usuario ya existe → usar reset password
-        const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-        await sendPasswordResetEmail(auth, email);
-        document.getElementById('acc-success').textContent =
-          `✅ El usuario ya existe. Se ha enviado un email de restablecimiento a ${email}.`;
+        // Usuario ya existe - continuamos para enviar email de Brevo
+        accountCreated = true;
       } else {
         throw new Error(data.error.message);
       }
     } else {
-      // Cuenta nueva creada - enviar email de bienvenida
+      // Cuenta nueva creada
+      accountCreated = true;
+    }
+
+    // En ambos casos: enviar email de bienvenida desde Brevo
+    if(accountCreated) {
       try {
         await enviarEmailBienvenida(person.email, person.username || person.id, pass, person.name);
+        const msgType = data.error?.message === 'EMAIL_EXISTS' ? 'actualizada' : 'creada';
         document.getElementById('acc-success').textContent =
-          `✅ Cuenta creada para ${person.email}. Email de bienvenida enviado con credenciales.`;
+          `✅ Cuenta ${msgType} para ${person.email}. Email enviado con credenciales.`;
       } catch(emailError) {
-        // Si el email falla, aún así mostrar que la cuenta se creó
         console.error('Error al enviar email:', emailError);
+        const msgType = data.error?.message === 'EMAIL_EXISTS' ? 'actualizada' : 'creada';
         document.getElementById('acc-success').textContent =
-          `✅ Cuenta creada para ${email}. (Contraseña temporal: ${pass})`;
+          `✅ Cuenta ${msgType} para ${email}. (Contraseña temporal: ${pass})`;
       }
     }
     document.getElementById('acc-success').style.display = 'block';
