@@ -425,21 +425,28 @@ onAuthStateChanged(auth, user => {
   if(!user) { window.location = 'index.html'; return; }
   const role = sessionStorage.getItem('userRole') || 'user';
   window._isAdmin = role === 'admin';
+
   if(!window._isAdmin) {
-    // Ocultar pestañas de alta, baja y accesos para no-admins
+    // USUARIOS NORMALES: Solo pueden ver Team Roster
+    // Ocultar TODAS las pestañas excepto Team Roster
     document.querySelectorAll('.tab').forEach(t => {
-      if(t.textContent.includes('Alta') || t.textContent.includes('Baja') || t.textContent.includes('Accesos')) {
+      if(!t.textContent.includes('Team Roster')) {
         t.style.display = 'none';
+      }
+    });
+    // Ocultar TODOS los paneles excepto roster
+    document.querySelectorAll('.panel').forEach(p => {
+      if(p.id !== 'tab-roster') {
+        p.style.display = 'none';
       }
     });
     // Mostrar directamente el roster
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-roster').classList.add('active');
   } else {
-    // Admin: mostrar pestañas admin-only
-    document.querySelectorAll('.admin-only').forEach(t => {
-      t.style.display = 'block';
-    });
+    // ADMINS: Mostrar todas las pestañas
+    document.querySelectorAll('.tab').forEach(t => t.style.display = 'block');
+    document.querySelectorAll('.panel').forEach(p => p.style.display = 'block');
     // Cargar años visibles solo para admins
     loadAñosVisibles();
   }
