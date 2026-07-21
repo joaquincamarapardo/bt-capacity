@@ -631,11 +631,20 @@ window.saveTeam = async (sel) => {
 
 // ── Exportar Excel ────────────────────────────────────────────────────────
 window.exportExcel = async () => {
+  console.log('🔵 EXPORTEXCEL LLAMADO');
   const btn = document.getElementById('btn-export');
+  if (!btn) {
+    console.error('❌ No se encontró btn-export');
+    return;
+  }
   btn.textContent = '⏳ Cargando datos...';
   btn.disabled = true;
 
   try {
+    console.log('📊 === INICIANDO EXPORT A EXCEL ===');
+    console.log('📅 Año seleccionado:', currentYear);
+    console.log('👥 Roster cargado:', roster.length, 'personas');
+
     const wb = XLSX.utils.book_new();
 
     // Cargar TODOS los meses de Firebase (no solo el actual)
@@ -643,11 +652,18 @@ window.exportExcel = async () => {
     const allSnap = await getDocs(collection(db, 'calendar'));
     const allCalData = {};
     allSnap.forEach(d => { allCalData[d.id] = d.data(); });
+
+    console.log('📥 Documentos calendar cargados:', allSnap.size);
+    console.log('   Primeros 5 docIds:', Object.keys(allCalData).slice(0, 5));
+
     const MONTHS_FULL = ["January","February","March","April","May","June",
                          "July","August","September","October","November","December"];
     const DAY_NAMES_EN = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const YEAR = 2026;
-    const DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31];
+    const YEAR = currentYear;
+    const DAYS_IN_MONTH = getYearData(YEAR).daysInMonth;
+
+    console.log('📅 YEAR para export:', YEAR);
+    console.log('🗓️ MN (meses abreviados):', MN);
 
     // Ordenar roster: onsite primero, luego offshore, ambos alfabéticos
     const sortedRoster = [...roster].sort((a,b) => {
@@ -682,13 +698,22 @@ ${DAY_NAMES_EN[wd]}`);
       let totals = new Array(nDays).fill(0);
       let totalSum = 0;
 
-      active.forEach(p => {
-        const docId = `${mk}-${p.id}`;
+      active.forEach((p, pIdx) => {
+        const docId = getCalendarDocId(YEAR, mk, p.id);
         const pData = allCalData[docId] || calData[docId] || { days: {} };
         const hd    = p.hrs ? p.hrs[mi] : 8;
         const pStart= new Date(p.start + 'T00:00:00');
         const pEnd  = p.end ? new Date(p.end + 'T23:59:59') : null;
         const team  = (allCalData[docId] || calData[docId] || {}).team || p.team || 'BT';
+
+        if(pIdx === 0) { // Log solo para la primera persona de cada mes
+          console.log(`\n📅 MES: ${mk} (index ${mi})`);
+          console.log(`  👤 Primera persona: ${p.name} (id: ${p.id})`);
+          console.log(`  🔍 DocId buscado: ${docId}`);
+          console.log(`  ✓ Encontrado en allCalData:`, !!allCalData[docId]);
+          console.log(`  ✓ Encontrado en calData:`, !!calData[docId]);
+          console.log(`  📊 pData.days:`, pData.days);
+        }
 
         let rowTotal = 0;
         const dayVals = [];
