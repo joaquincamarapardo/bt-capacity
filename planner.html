@@ -169,13 +169,13 @@ async function loadVisibleYears() {
     try {
       let firstLoad = true;
       // Escuchar cambios en tiempo real en settings/years
-      onSnapshot(doc(db, 'settings', 'years'), (settingsSnap) => {
+      onSnapshot(doc(db, 'settings', 'years'), async (settingsSnap) => {
         if(settingsSnap.exists() && settingsSnap.data().visibleYears) {
           const newVisibleYears = settingsSnap.data().visibleYears.sort((a,b) => a-b);
           // Si cambiaron los años visibles, actualizar selector
           if(JSON.stringify(newVisibleYears) !== JSON.stringify(visibleYears)) {
             visibleYears = newVisibleYears;
-            if(!firstLoad) initializeYearSelector();
+            if(!firstLoad) await initializeYearSelector();
           }
         }
         if(firstLoad) {
@@ -205,7 +205,7 @@ async function loadValidationState() {
 }
 
 // Inicializar selector de años
-function initializeYearSelector() {
+async function initializeYearSelector() {
   const selector = document.getElementById('year-selector');
   if(!selector) return;
 
@@ -231,6 +231,7 @@ function initializeYearSelector() {
     DAYS = yearData.daysInMonth;
     localStorage.setItem('selectedYear', currentYear);
     selector.value = currentYear;
+    await loadMonth(curMonth); // Esperar a cargar datos del nuevo año
   }
 
   selector.addEventListener('change', (e) => {
