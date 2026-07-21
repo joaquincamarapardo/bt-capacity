@@ -117,6 +117,17 @@ import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, collection, getDocs,
   from './firebase-config.js';
 import { query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
+// Hacer variables globales para que exportExcel() pueda usarlas
+window.db = db;
+window.getDocs = getDocs;
+window.collection = collection;
+window.getDoc = getDoc;
+window.setDoc = setDoc;
+window.doc = doc;
+window.onSnapshot = onSnapshot;
+window.query = query;
+window.where = where;
+
 // Usar config.js para obtener datos dinámicos
 let currentYear = getCurrentValidYear();
 let yearData = getYearData(currentYear);
