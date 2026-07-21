@@ -437,16 +437,13 @@ onAuthStateChanged(auth, user => {
     // Ocultar TODOS los paneles excepto roster
     document.querySelectorAll('.panel').forEach(p => {
       if(p.id !== 'tab-roster') {
-        p.style.display = 'none';
+        p.classList.remove('active');
       }
     });
     // Mostrar directamente el roster
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-roster').classList.add('active');
   } else {
-    // ADMINS: Mostrar todas las pestañas
-    document.querySelectorAll('.tab').forEach(t => t.style.display = 'block');
-    document.querySelectorAll('.panel').forEach(p => p.style.display = 'block');
+    // ADMINS: Mostrar todas las pestañas y paneles
     // Cargar años visibles solo para admins
     loadAñosVisibles();
   }
