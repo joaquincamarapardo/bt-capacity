@@ -222,6 +222,17 @@ function initializeYearSelector() {
     selector.appendChild(option);
   });
 
+  // Si el año actual no está en años visibles, actualizar a uno válido
+  if(!visibleYears.includes(currentYear) && visibleYears.length > 0) {
+    currentYear = visibleYears[0];
+    yearData = getYearData(currentYear);
+    MN = yearData.monthNames;
+    MNL = yearData.monthNamesES;
+    DAYS = yearData.daysInMonth;
+    localStorage.setItem('selectedYear', currentYear);
+    selector.value = currentYear;
+  }
+
   selector.addEventListener('change', (e) => {
     currentYear = parseInt(e.target.value);
     yearData = getYearData(currentYear);
