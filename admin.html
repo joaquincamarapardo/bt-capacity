@@ -215,9 +215,9 @@ tr:hover td{background:#F9FAFB}
   <!-- Accesos -->
   <div id="tab-accesos" class="panel">
     <div class="form-card">
-      <div class="section">Crear o restablecer contraseña de usuario</div>
+      <div class="section">Crear cuenta de usuario</div>
       <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
-        Usa esta herramienta para crear la contraseña inicial de un usuario nuevo o restablecer la de uno existente.
+        Usa esta herramienta para dar de alta la cuenta de un usuario nuevo con una contraseña inicial.
         El usuario podrá cambiarla después desde la pantalla de login.
       </p>
       <div class="grid2">
@@ -230,10 +230,10 @@ tr:hover td{background:#F9FAFB}
           <input type="text" id="acc-pass" placeholder="Mínimo 6 caracteres" value="BT2026!">
         </div>
       </div>
-      <div class="note">ℹ️ Si el usuario es <strong>nuevo</strong>, se crea con la contraseña indicada y se le envía por email (Brevo). Si <strong>ya existe</strong>, se le envía un email de restablecimiento de Firebase para que fije él mismo su contraseña (sin backend no es posible asignarla directamente).</div>
+      <div class="note">ℹ️ Solo crea cuentas <strong>nuevas</strong>: se crean con la contraseña indicada y se envían las credenciales por email (Brevo). Si la cuenta <strong>ya existe</strong>, no se modifica; para cambiar su contraseña usa el script set-password.</div>
       <div class="success-msg" id="acc-success">✅ Cuenta creada/actualizada correctamente.</div>
       <div class="actions">
-        <button class="btn-primary" onclick="crearCuentaUsuario()">🔑 Crear / Restablecer contraseña</button>
+        <button class="btn-primary" onclick="crearCuentaUsuario()">🔑 Crear cuenta</button>
       </div>
     </div>
   </div>
@@ -930,13 +930,10 @@ window.crearCuentaUsuario = async () => {
           `✅ Cuenta creada para ${email} (contraseña: ${pass}), pero no se pudo enviar el email: ${emailError.message}`;
       }
     } else if (errMsg.startsWith('EMAIL_EXISTS')) {
-      // USUARIO EXISTENTE: sin backend (Admin SDK) NO se puede fijar la contraseña directamente.
-      // Enviamos el email de restablecimiento nativo de Firebase para que la fije él mismo.
-      const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-      await sendPasswordResetEmail(auth, email);
-      successEl.textContent =
-        `✅ El usuario ya existe. Se ha enviado un email de restablecimiento a ${email}. ` +
-        `Deberá pinchar el enlace del correo para fijar su nueva contraseña.`;
+      // USUARIO EXISTENTE: no se puede fijar desde el navegador (requiere Admin SDK).
+      alert(`La cuenta ${email} ya existe y no se ha modificado.\n\n` +
+            'Para fijar su contraseña usa el script set-password en la carpeta bt-admin-tools.');
+      return;
     } else if (errMsg.startsWith('OPERATION_NOT_ALLOWED') || errMsg.startsWith('ADMIN_ONLY_OPERATION')) {
       throw new Error(
         'El método de acceso Email/Contraseña está deshabilitado en este proyecto Firebase. ' +

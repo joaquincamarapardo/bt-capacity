@@ -46,7 +46,6 @@ h1{font-size:20px;font-weight:600;color:var(--navy);text-align:center;margin-bot
 
   <div class="tabs">
     <button class="tab active" onclick="showTab('login',this)">Iniciar sesión</button>
-    <button class="tab" onclick="showTab('reset',this)">Recuperar contraseña</button>
     <button class="tab" onclick="showTab('change',this)">Cambiar contraseña</button>
   </div>
 
@@ -62,17 +61,7 @@ h1{font-size:20px;font-weight:600;color:var(--navy);text-align:center;margin-bot
     </div>
     <button class="btn btn-primary" onclick="doLogin()">Iniciar sesión</button>
     <div class="msg" id="login-msg"></div>
-  </div>
-
-  <!-- RECUPERAR -->
-  <div id="tab-reset" class="panel">
-    <div class="field">
-      <label>Email corporativo</label>
-      <input type="email" id="r-email" placeholder="ferran.mas@dxc.com">
-      <span class="hint">Se enviará un enlace de recuperación a tu email.</span>
-    </div>
-    <button class="btn btn-primary" onclick="doReset()">Enviar enlace de recuperación</button>
-    <div class="msg" id="reset-msg"></div>
+    <span class="hint">¿Olvidaste tu contraseña? Contacta con el administrador de BT Team Capacity.</span>
   </div>
 
   <!-- CAMBIAR CONTRASEÑA -->
@@ -104,8 +93,7 @@ h1{font-size:20px;font-weight:600;color:var(--navy);text-align:center;margin-bot
 import { auth, db, onAuthStateChanged, googleProvider }
   from './firebase-config.js';
 import {
-  signInWithEmailAndPassword, sendPasswordResetEmail,
-  updatePassword, EmailAuthProvider, reauthenticateWithCredential
+  signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -157,22 +145,6 @@ window.doLogin = async () => {
     };
     showMsg('login-msg', msgs[e.code] || 'Error: ' + e.message, false);
     btn.disabled=false; btn.textContent='Iniciar sesión';
-  }
-};
-
-// ── RECUPERAR CONTRASEÑA ───────────────────────────────────────────────────
-window.doReset = async () => {
-  const email = document.getElementById('r-email').value.trim();
-  if(!email) { showMsg('reset-msg','Introduce tu email.',false); return; }
-  try {
-    await sendPasswordResetEmail(auth, email);
-    showMsg('reset-msg', '✅ Email enviado. Revisa tu bandeja de entrada (y la carpeta de spam).', true);
-  } catch(e) {
-    const msgs = {
-      'auth/user-not-found': 'No existe cuenta con ese email.',
-      'auth/invalid-email':  'Email no válido.',
-    };
-    showMsg('reset-msg', msgs[e.code] || 'Error: ' + e.message, false);
   }
 };
 
