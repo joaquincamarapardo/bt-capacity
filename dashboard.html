@@ -391,13 +391,19 @@ function renderOverview(){
   const totB=d.annual.reduce((s,a)=>s+a.abs_hrs,0);
   const maxM=d.annual.reduce((a,b)=>a.total_hrs>b.total_hrs?a:b);
   const maxAM=d.annual.reduce((a,b)=>a.abs_hrs>b.abs_hrs?a:b);
-  const nOn=d.people.filter(p=>p.mode==='Onsite').length;
-  const nOff=d.people.filter(p=>p.mode==='Offshore').length;
+  // Activo = está en el roster y no tiene fecha de baja pasada (misma regla que admin.html)
+  const today=new Date().toISOString().split('T')[0];
+  const activos=d.people.filter(p=>{
+    const r=d.roster.find(x=>x.name===p.name);
+    return r && (!r.end||r.end>=today);
+  });
+  const nOn=activos.filter(p=>p.mode==='Onsite').length;
+  const nOff=activos.filter(p=>p.mode==='Offshore').length;
 
   let html=`<div class="cards">
     ${card(`Total horas ${currentYear}`,fmt(totA)+'h',`${totA.toLocaleString()} h disponibles`,true)}
     ${card('Total ausencias',fmt(totB)+'h',`${pct(totB,totA+totB)}% sobre capacidad bruta`)}
-    ${card('Personas activas',d.people.length,`${nOn} Onsite · ${nOff} Offshore`)}
+    ${card('Personas activas',activos.length,`${nOn} Onsite · ${nOff} Offshore`)}
     ${card('Mes más productivo',maxM.month,`${maxM.total_hrs.toLocaleString()} h`)}
     ${card('Mes más ausencias',maxAM.month,`${maxAM.abs_hrs.toLocaleString()} h ausencia`)}
   </div>
